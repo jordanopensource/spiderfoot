@@ -91,13 +91,15 @@ class sfp_etherscan(SpiderFootPlugin):
         time.sleep(self.opts['pause'])
 
         if res['content'] is None:
-            self.sf.info(f"No Etherscan data found for {qry}")
+            self.info(f"No Etherscan data found for {qry}")
             return None
+
         try:
             return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
-            return None
+            self.debug(f"Error processing JSON response: {e}")
+
+        return None
 
     # Handle events sent to this module
     def handleEvent(self, event):
@@ -105,27 +107,26 @@ class sfp_etherscan(SpiderFootPlugin):
         srcModuleName = event.module
         eventData = event.data
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if self.errorState:
-            return None
+            return
 
         if self.opts['api_key'] == "":
-            self.sf.error("You enabled sfp_etherscan but did not set an API key!")
+            self.error("You enabled sfp_etherscan but did not set an API key!")
             self.errorState = True
             return
 
-        # Don't look up stuff twice
         if eventData in self.results:
-            self.sf.debug(f"Skipping {eventData}, already checked.")
-            return None
-        else:
-            self.results[eventData] = True
+            self.debug(f"Skipping {eventData}, already checked.")
+            return
+
+        self.results[eventData] = True
 
         data = self.query(eventData)
         if data is None:
-            self.sf.info(f"No Etherscan data found for {eventData}")
-            return None
+            self.info(f"No Etherscan data found for {eventData}")
+            return
 
         # Value returned by etherscan was too large in comparison to actual wallet balance
         balance = float(data.get('result')) / 1000000000000000000

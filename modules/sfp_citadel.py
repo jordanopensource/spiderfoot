@@ -11,10 +11,10 @@
 # -------------------------------------------------------------------------------
 
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import time
 
 from spiderfoot import SpiderFootEvent, SpiderFootPlugin
 
@@ -110,16 +110,15 @@ class sfp_citadel(SpiderFootPlugin):
             return self.queryEmail(email)
 
         if res['content'] is None:
-            self.sf.debug('No response from Leak-Lookup.com')
+            self.debug('No response from Leak-Lookup.com')
             return None
 
         try:
-            data = json.loads(res['content'])
+            return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
-            return None
+            self.debug(f"Error processing JSON response: {e}")
 
-        return data
+        return None
 
     # Handle events sent to this module
     def handleEvent(self, event):
@@ -127,38 +126,38 @@ class sfp_citadel(SpiderFootPlugin):
         srcModuleName = event.module
         eventData = event.data
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if self.errorState:
-            return None
+            return
 
         # Don't look up stuff twice
         if eventData in self.results:
-            self.sf.debug(f"Skipping {eventData}, already checked.")
-            return None
+            self.debug(f"Skipping {eventData}, already checked.")
+            return
 
         self.results[eventData] = True
 
         data = self.queryEmail(eventData)
 
         if data is None:
-            return None
+            return
 
         error = data.get('error')
         message = data.get('message')
 
         if error == 'true':
-            self.sf.error(f"Error encountered processing {eventData}: {message}")
+            self.error(f"Error encountered processing {eventData}: {message}")
             if "MISSING API" in message:
                 self.errorState = True
-                return None
-            return None
+                return
+            return
 
         if not message:
-            return None
+            return
 
         for site in message:
-            self.sf.info(f"Found Leak-Lookup entry for {eventData}: {site}")
+            self.info(f"Found Leak-Lookup entry for {eventData}: {site}")
             evt = SpiderFootEvent("EMAILADDR_COMPROMISED", f"{eventData} [{site}]", self.__name__, event)
             self.notifyListeners(evt)
 

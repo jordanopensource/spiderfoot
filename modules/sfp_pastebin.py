@@ -88,25 +88,22 @@ class sfp_pastebin(SpiderFootPlugin):
         eventData = event.data
 
         if self.errorState:
-            return None
+            return
 
         if self.opts['api_key'] == "":
-            self.sf.error("You enabled sfp_pastebin but did not set a Google API key!")
+            self.error(f"You enabled {self.__class__.__name__} but did not set a Google API key!")
             self.errorState = True
-            return None
+            return
 
         if eventData in self.results:
-            return None
-        else:
-            self.results[eventData] = True
+            return
+
+        self.results[eventData] = True
 
         for dom in list(self.domains.keys()):
             target = self.domains[dom]
             res = self.sf.googleIterate(
-                searchString="+site:{target_site} \"{search_keyword}\"".format(
-                    target_site=target,
-                    search_keyword=eventData,
-                ),
+                searchString=f'+site:{target} "{eventData}"',
                 opts={
                     "timeout": self.opts["_fetchtimeout"],
                     "useragent": self.opts["_useragent"],
@@ -117,7 +114,7 @@ class sfp_pastebin(SpiderFootPlugin):
 
             if res is None:
                 # Failed to talk to the Google API or no results returned
-                return None
+                return
 
             urls = res["urls"]
             new_links = list(set(urls) - set(self.results.keys()))
@@ -131,16 +128,16 @@ class sfp_pastebin(SpiderFootPlugin):
             ]
 
             for link in relevant_links:
-                self.sf.debug("Found a link: " + link)
+                self.debug("Found a link: " + link)
 
                 if self.checkForStop():
-                    return None
+                    return
 
                 res = self.sf.fetchUrl(link, timeout=self.opts['_fetchtimeout'],
                                        useragent=self.opts['_useragent'])
 
                 if res['content'] is None:
-                    self.sf.debug(f"Ignoring {link} as no data returned")
+                    self.debug(f"Ignoring {link} as no data returned")
                     continue
 
                 if re.search(
@@ -155,6 +152,5 @@ class sfp_pastebin(SpiderFootPlugin):
 
                 evt2 = SpiderFootEvent("LEAKSITE_CONTENT", res['content'], self.__name__, evt1)
                 self.notifyListeners(evt2)
-
 
 # End of sfp_pastebin class

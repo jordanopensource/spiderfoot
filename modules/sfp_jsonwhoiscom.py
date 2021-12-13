@@ -94,7 +94,7 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
         }
 
         res = self.sf.fetchUrl(
-            "https://jsonwhois.com/api/v1/whois?%s" % urllib.parse.urlencode(params),
+            f"https://jsonwhois.com/api/v1/whois?{urllib.parse.urlencode(params)}",
             headers=headers,
             timeout=15,
             useragent=self.opts['_useragent']
@@ -107,32 +107,32 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
     # Parse API response
     def parseAPIResponse(self, res):
         if res['code'] == '404':
-            self.sf.debug("No results for query")
+            self.debug("No results for query")
             return None
 
         # Sometimes JsonWHOIS.com returns HTTP 500 errors rather than 404
         if res['code'] == '500' and res['content'] == '{"error":"Call failed"}':
-            self.sf.debug("No results for query")
+            self.debug("No results for query")
             return None
 
         if res['code'] == "401":
-            self.sf.error("Invalid JsonWHOIS.com API key.")
+            self.error("Invalid JsonWHOIS.com API key.")
             self.errorState = True
             return None
 
         if res['code'] == '429':
-            self.sf.error("You are being rate-limited by JsonWHOIS.com")
+            self.error("You are being rate-limited by JsonWHOIS.com")
             self.errorState = True
             return None
 
         if res['code'] == '503':
-            self.sf.error("JsonWHOIS.com service unavailable")
+            self.error("JsonWHOIS.com service unavailable")
             self.errorState = True
             return None
 
         # Catch all other non-200 status codes, and presume something went wrong
         if res['code'] != '200':
-            self.sf.error("Failed to retrieve content from JsonWHOIS.com")
+            self.error("Failed to retrieve content from JsonWHOIS.com")
             self.errorState = True
             return None
 
@@ -140,12 +140,11 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
             return None
 
         try:
-            data = json.loads(res['content'])
+            return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
-            return None
+            self.debug(f"Error processing JSON response: {e}")
 
-        return data
+        return None
 
     # Handle events sent to this module
     def handleEvent(self, event):
@@ -154,25 +153,25 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
         eventData = event.data
 
         if self.errorState:
-            return None
+            return
 
         if eventData in self.results:
-            return None
+            return
 
         if self.opts['api_key'] == "":
-            self.sf.error("You enabled sfp_jsonwhoiscom but did not set an API key!")
+            self.error("You enabled sfp_jsonwhoiscom but did not set an API key!")
             self.errorState = True
-            return None
+            return
 
         self.results[eventData] = True
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         res = self.queryDomain(eventData)
 
         if res is None:
-            self.sf.debug("No information found for domain %s" % eventData)
-            return None
+            self.debug(f"No information found for domain {eventData}")
+            return
 
         evt = SpiderFootEvent('RAW_RIR_DATA', str(res), self.__name__, event)
         self.notifyListeners(evt)

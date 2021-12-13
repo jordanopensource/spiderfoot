@@ -25,7 +25,7 @@ class sfp_koodous(SpiderFootPlugin):
     meta = {
         'name': "Koodous",
         'summary': "Search Koodous for mobile apps.",
-        'flags': [""],
+        'flags': [],
         'useCases': ["Investigate", "Footprint", "Passive"],
         'categories': ["Search Engines"],
         'dataSource': {
@@ -86,14 +86,14 @@ class sfp_koodous(SpiderFootPlugin):
             return None
 
         if res['code'] != '200':
-            self.sf.error(f"Unexpected reply from Koodous: {res['code']}")
+            self.error(f"Unexpected reply from Koodous: {res['code']}")
             self.errorState = True
             return None
 
         try:
             return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response from Koodous: {e}")
+            self.debug(f"Error processing JSON response from Koodous: {e}")
             return None
 
         return None
@@ -106,10 +106,10 @@ class sfp_koodous(SpiderFootPlugin):
         if self.errorState:
             return
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if eventData in self.results:
-            self.sf.debug(f"Skipping {eventData}, already checked.")
+            self.debug(f"Skipping {eventData}, already checked.")
             return
 
         if eventName not in self.watchedEvents():
@@ -122,6 +122,7 @@ class sfp_koodous(SpiderFootPlugin):
         max_pages = int(self.opts['max_pages'])
         page = 1
         cursor = ''
+        found = False
         while page <= max_pages:
             if self.checkForStop():
                 return
@@ -133,9 +134,6 @@ class sfp_koodous(SpiderFootPlugin):
             if not data:
                 self.errorState = True
                 return
-
-            evt = SpiderFootEvent('RAW_RIR_DATA', json.dumps(data), self.__name__, event)
-            self.notifyListeners(evt)
 
             results = data.get('results')
 
@@ -163,7 +161,7 @@ class sfp_koodous(SpiderFootPlugin):
                     and not package_name.lower().endswith(f".{domain_reversed}")
                     and f".{domain_reversed}." not in package_name.lower()
                 ):
-                    self.sf.debug(f"App {app_full_name} does not match {domain_reversed}, skipping")
+                    self.debug(f"App {app_full_name} does not match {domain_reversed}, skipping")
                     continue
 
                 sha256 = result.get('sha256')
@@ -174,6 +172,11 @@ class sfp_koodous(SpiderFootPlugin):
                 app_data = f"{app_full_name}\n<SFURL>https://koodous.com/apks/{sha256}</SFURL>"
 
                 evt = SpiderFootEvent('APPSTORE_ENTRY', app_data, self.__name__, event)
+                self.notifyListeners(evt)
+                found = True
+
+            if found:
+                evt = SpiderFootEvent('RAW_RIR_DATA', json.dumps(data), self.__name__, event)
                 self.notifyListeners(evt)
 
             if not data.get('next'):

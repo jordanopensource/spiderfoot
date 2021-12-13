@@ -23,7 +23,7 @@ class sfp_scylla(SpiderFootPlugin):
     meta = {
         'name': "Scylla",
         'summary': "Gather breach data from Scylla API.",
-        'flags': [""],
+        'flags': [],
         'useCases': ["Footprint", "Investigate", "Passive"],
         'categories': ["Leaks, Dumps and Breaches"],
         'dataSource': {
@@ -84,7 +84,7 @@ class sfp_scylla(SpiderFootPlugin):
         headers = {
             'Accept': 'application/json'
         }
-        res = self.sf.fetchUrl('https://scylla.so/search?' + urllib.parse.urlencode(params),
+        res = self.sf.fetchUrl(f"https://scylla.so/search?{urllib.parse.urlencode(params)}",
                                headers=headers,
                                timeout=15,
                                useragent=self.opts['_useragent'],
@@ -94,21 +94,20 @@ class sfp_scylla(SpiderFootPlugin):
         time.sleep(self.opts['pause'])
 
         if res['code'] != "200":
-            self.sf.error("Syclla.sh is having problems.")
+            self.error("Syclla.sh is having problems.")
             self.errorState = True
             return None
 
         if res['content'] is None:
-            self.sf.debug('No response from Scylla.so')
+            self.debug('No response from Scylla.so')
             return None
 
         try:
-            data = json.loads(res['content'])
+            return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
-            return None
+            self.debug(f"Error processing JSON response: {e}")
 
-        return data
+        return None
 
     # Handle events sent to this module
     def handleEvent(self, event):
@@ -124,7 +123,7 @@ class sfp_scylla(SpiderFootPlugin):
 
         self.results[eventData] = True
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         position = 0
         max_pages = int(self.opts['max_pages'])
@@ -164,7 +163,7 @@ class sfp_scylla(SpiderFootPlugin):
                     continue
 
                 if not self.sf.validEmail(email):
-                    self.sf.debug("Skipping invalid email address: " + email)
+                    self.debug("Skipping invalid email address: " + email)
                     continue
 
                 mailDom = email.lower().split('@')[1]
@@ -172,7 +171,7 @@ class sfp_scylla(SpiderFootPlugin):
                 # Skip unrelated emails
                 # Scylla sometimes returns broader results than the searched data
                 if not self.getTarget().matches(mailDom):
-                    self.sf.debug("Skipped address: " + email)
+                    self.debug("Skipped address: " + email)
                     continue
 
                 breach = result.get('domain', 'Unknown')

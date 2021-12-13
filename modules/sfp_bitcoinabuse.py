@@ -20,7 +20,7 @@ class sfp_bitcoinabuse(SpiderFootPlugin):
     meta = {
         "name": "BitcoinAbuse",
         "summary": "Check Bitcoin addresses against the bitcoinabuse.com database of suspect/malicious addresses.",
-        "flags": ["apikey"],
+        'flags': ["apikey"],
         "useCases": ["Passive", "Investigate"],
         "categories": ["Reputation Systems"],
         "dataSource": {
@@ -78,20 +78,19 @@ class sfp_bitcoinabuse(SpiderFootPlugin):
             useragent="SpiderFoot",
         )
         if res["code"] != "200":
-            self.sf.info(f"Failed to get results for {address}, code {res['code']}")
+            self.info(f"Failed to get results for {address}, code {res['code']}")
             return None
 
         if res["content"] is None:
-            self.sf.info(f"Failed to get results for {address}, empty content")
+            self.info(f"Failed to get results for {address}, empty content")
             return None
 
         try:
-            info = json.loads(res["content"])
+            return json.loads(res["content"])
         except Exception as e:
-            self.sf.error(f"Error processing JSON response from BitcoinAbuse: {e}")
-            return None
+            self.error(f"Error processing JSON response from BitcoinAbuse: {e}")
 
-        return info
+        return None
 
     def handleEvent(self, event):
         eventName = event.eventType
@@ -99,18 +98,18 @@ class sfp_bitcoinabuse(SpiderFootPlugin):
         eventData = event.data
 
         if self.errorState:
-            return None
+            return
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if self.opts["api_key"] == "":
-            self.sf.error("You enabled sfp_bitcoinabuse but did not set an API key!")
+            self.error("You enabled sfp_bitcoinabuse but did not set an API key!")
             self.errorState = True
-            return None
+            return
 
         if eventData in self.results:
-            self.sf.debug(f"Skipping {eventData}, already checked.")
-            return None
+            self.debug(f"Skipping {eventData}, already checked.")
+            return
 
         self.results[eventData] = True
 
