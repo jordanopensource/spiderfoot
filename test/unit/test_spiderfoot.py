@@ -1,36 +1,15 @@
 # test_spiderfoot.py
+import pytest
 import unittest
 
 from sflib import SpiderFoot
-from spiderfoot import SpiderFootTarget
 
 
+@pytest.mark.usefixtures
 class TestSpiderFoot(unittest.TestCase):
     """
     Test SpiderFoot
     """
-
-    default_options = {
-        '_debug': False,  # Debug
-        '__logging': True,  # Logging in general
-        '__outputfilter': None,  # Event types to filter from modules' output
-        '_useragent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0) Gecko/20100101 Firefox/62.0',  # User-Agent to use for HTTP requests
-        '_dnsserver': '',  # Override the default resolver
-        '_fetchtimeout': 5,  # number of seconds before giving up on a fetch
-        '_internettlds': 'https://publicsuffix.org/list/effective_tld_names.dat',
-        '_internettlds_cache': 72,
-        '_genericusers': "abuse,admin,billing,compliance,devnull,dns,ftp,hostmaster,inoc,ispfeedback,ispsupport,list-request,list,maildaemon,marketing,noc,no-reply,noreply,null,peering,peering-notify,peering-request,phish,phishing,postmaster,privacy,registrar,registry,root,routing-registry,rr,sales,security,spam,support,sysadmin,tech,undisclosed-recipients,unsubscribe,usenet,uucp,webmaster,www",
-        '__version__': '3.3',
-        '__database': 'spiderfoot.test.db',  # note: test database file
-        '__modules__': None,  # List of modules. Will be set after start-up.
-        '_socks1type': '',
-        '_socks2addr': '',
-        '_socks3port': '',
-        '_socks4user': '',
-        '_socks5pwd': '',
-        '_torctlport': 9051,
-        '__logstdout': False
-    }
 
     default_modules = [
         "sfp_binstring",
@@ -58,9 +37,8 @@ class TestSpiderFoot(unittest.TestCase):
         """
         invalid_types = [None, "", list(), int()]
         for invalid_type in invalid_types:
-            with self.subTest(invalid_type=invalid_type):
-                with self.assertRaises(TypeError):
-                    SpiderFoot(invalid_type)
+            with self.subTest(invalid_type=invalid_type), self.assertRaises(TypeError):
+                SpiderFoot(invalid_type)
 
     def test_init_argument_options_with_empty_dict(self):
         """
@@ -94,15 +72,6 @@ class TestSpiderFoot(unittest.TestCase):
         sf.socksProxy = 'new socket'
         self.assertEqual('new socket', sf.socksProxy)
 
-    def test_refresh_tor_ident_should_return_none(self):
-        """
-        Test refreshTorIdent(self)
-        """
-        sf = SpiderFoot(self.default_options)
-
-        res = sf.refreshTorIdent()
-        self.assertEqual(None, res)
-
     def test_optValueToData_should_return_data_as_string(self):
         """
         Test optValueToData(self, val)
@@ -113,6 +82,17 @@ class TestSpiderFoot(unittest.TestCase):
         opt_data = sf.optValueToData(test_string)
         self.assertIsInstance(opt_data, str)
         self.assertEqual(test_string, opt_data)
+
+    def test_optValueToData_argument_val_filename_should_return_file_contents_as_string(self):
+        """
+        Test optValueToData(self, val)
+        """
+        sf = SpiderFoot(self.default_options)
+
+        test_string = "@VERSION"
+        opt_data = sf.optValueToData(test_string)
+        self.assertIsInstance(opt_data, str)
+        self.assertTrue(opt_data.startswith("SpiderFoot"))
 
     def test_optValueToData_argument_val_invalid_type_should_return_None(self):
         """
@@ -125,66 +105,6 @@ class TestSpiderFoot(unittest.TestCase):
             with self.subTest(invalid_type=invalid_type):
                 opt_data = sf.optValueToData(invalid_type)
                 self.assertEqual(opt_data, None)
-
-    def test_buildGraphData_should_return_a_set(self):
-        """
-        Test buildGraphData(self, data, flt=list())
-        """
-        sf = SpiderFoot(dict())
-
-        graph_data = sf.buildGraphData('', '')
-        self.assertIsInstance(graph_data, set)
-
-        graph_data = sf.buildGraphData(None, None)
-        self.assertIsInstance(graph_data, set)
-
-        self.assertEqual('TBD', 'TBD')
-
-    def test_buildGraphGexf_should_return_bytes(self):
-        """
-        Test buildGraphGexf(self, root, title, data, flt=[])
-        """
-        sf = SpiderFoot(dict())
-
-        gexf = sf.buildGraphGexf(None, None, None)
-        self.assertIsInstance(gexf, bytes)
-
-        gexf = sf.buildGraphGexf('', '', '')
-        self.assertIsInstance(gexf, bytes)
-
-        self.assertEqual('TBD', 'TBD')
-
-    def test_build_graph_json_should_return_a_string(self):
-        """
-        Test buildGraphJson(self, root, data, flt=list())
-        """
-        sf = SpiderFoot(dict())
-
-        json = sf.buildGraphJson(None, None)
-        self.assertIsInstance(json, str)
-
-        json = sf.buildGraphJson('', '')
-        self.assertIsInstance(json, str)
-
-        self.assertEqual('TBD', 'TBD')
-
-    def test_genScanInstanceId_should_return_a_string(self):
-        """
-        Test genScanInstanceId(self)
-        """
-        sf = SpiderFoot(dict())
-
-        scan_instance_id = sf.genScanInstanceId()
-        self.assertIsInstance(scan_instance_id, str)
-
-    def test_dblog_invalid_dbh_should_raise(self):
-        """
-        Test _dblog(self, level, message, component=None)
-        """
-        sf = SpiderFoot(self.default_options)
-
-        with self.assertRaises(BaseException):
-            sf._dblog(None, None, None)
 
     def test_error(self):
         """
@@ -242,15 +162,6 @@ class TestSpiderFoot(unittest.TestCase):
         path = sf.myPath()
         self.assertIsInstance(path, str)
 
-    def test_data_path_should_return_a_string(self):
-        """
-        Test def dataPath(self)
-        """
-        sf = SpiderFoot(dict())
-
-        path = sf.myPath()
-        self.assertIsInstance(path, str)
-
     def test_hash_string_should_return_a_string(self):
         """
         Test hashstring(self, string)
@@ -260,15 +171,6 @@ class TestSpiderFoot(unittest.TestCase):
         hash_string = sf.hashstring('example string')
         self.assertIsInstance(hash_string, str)
         self.assertEqual("aedfb92b3053a21a114f4f301a02a3c6ad5dff504d124dc2cee6117623eec706", hash_string)
-
-    def test_cache_path_should_return_a_string(self):
-        """
-        Test cachePath(self)
-        """
-        sf = SpiderFoot(dict())
-
-        cache_path = sf.cachePath()
-        self.assertIsInstance(cache_path, str)
 
     def test_cache_get_should_return_a_string(self):
         """
@@ -348,48 +250,6 @@ class TestSpiderFoot(unittest.TestCase):
 
         cache_get = sf.cacheGet('', None)
         self.assertEqual(None, cache_get)
-
-    def test_target_type(self):
-        """
-        Test targetType(self, target)
-        """
-        sf = SpiderFoot(dict())
-
-        target_type = sf.targetType("0.0.0.0")
-        self.assertEqual('IP_ADDRESS', target_type)
-        target_type = sf.targetType("noreply@spiderfoot.net")
-        self.assertEqual('EMAILADDR', target_type)
-        target_type = sf.targetType("0.0.0.0/0")
-        self.assertEqual('NETBLOCK_OWNER', target_type)
-        target_type = sf.targetType("+1234567890")
-        self.assertEqual('PHONE_NUMBER', target_type)
-        target_type = sf.targetType('"Human Name"')
-        self.assertEqual('HUMAN_NAME', target_type)
-        target_type = sf.targetType('"abc123"')
-        self.assertEqual('USERNAME', target_type)
-        target_type = sf.targetType("1234567890")
-        self.assertEqual('BGP_AS_OWNER', target_type)
-        target_type = sf.targetType("::1")
-        self.assertEqual('IPV6_ADDRESS', target_type)
-        target_type = sf.targetType("spiderfoot.net")
-        self.assertEqual('INTERNET_NAME', target_type)
-        target_type = sf.targetType("1HesYJSP1QqcyPEjnQ9vzBL1wujruNGe7R")
-        self.assertEqual('BITCOIN_ADDRESS', target_type)
-
-    def test_target_type_invalid_seed_should_return_none(self):
-        """
-        Test targetType(self, target)
-        """
-        sf = SpiderFoot(dict())
-
-        target_type = sf.targetType(None)
-        self.assertEqual(None, target_type)
-
-        target_type = sf.targetType("")
-        self.assertEqual(None, target_type)
-
-        target_type = sf.targetType('""')
-        self.assertEqual(None, target_type)
 
     def test_modulesProducing_argument_events_should_return_a_list(self):
         """
@@ -518,6 +378,10 @@ class TestSpiderFoot(unittest.TestCase):
         self.assertIsInstance(keyword, str)
         self.assertEqual('spiderfoot', keyword)
 
+        keyword = sf.domainKeyword('spiderfööt.example', sf.opts.get('_internettlds'))
+        self.assertIsInstance(keyword, str)
+        self.assertEqual('spiderfööt', keyword)
+
     def test_domain_keyword_invalid_domain_should_return_none(self):
         """
         Test domainKeyword(self, domain, tldList)
@@ -532,6 +396,10 @@ class TestSpiderFoot(unittest.TestCase):
         keyword = sf.domainKeyword(None, sf.opts.get('_internettlds'))
         self.assertEqual(None, keyword)
         keyword = sf.domainKeyword("net", sf.opts.get('_internettlds'))
+        self.assertEqual(None, keyword)
+        keyword = sf.domainKeyword(".net", sf.opts.get('_internettlds'))
+        self.assertEqual(None, keyword)
+        keyword = sf.domainKeyword(".", sf.opts.get('_internettlds'))
         self.assertEqual(None, keyword)
 
     def test_domain_keywords_should_return_a_set(self):
@@ -854,36 +722,6 @@ class TestSpiderFoot(unittest.TestCase):
                 dns = sf.normalizeDNS(invalid_type)
                 self.assertIsInstance(dns, list)
 
-    def test_sanitise_input(self):
-        """
-        Test sanitiseInput(self, cmd)
-        """
-        sf = SpiderFoot(dict())
-
-        safe = sf.sanitiseInput("example-string")
-        self.assertIsInstance(safe, bool)
-        self.assertTrue(safe)
-
-        safe = sf.sanitiseInput("example-string\n")
-        self.assertIsInstance(safe, bool)
-        self.assertFalse(safe)
-
-        safe = sf.sanitiseInput("example string")
-        self.assertIsInstance(safe, bool)
-        self.assertFalse(safe)
-
-        safe = sf.sanitiseInput("-example-string")
-        self.assertIsInstance(safe, bool)
-        self.assertFalse(safe)
-
-        safe = sf.sanitiseInput("..example-string")
-        self.assertIsInstance(safe, bool)
-        self.assertFalse(safe)
-
-        safe = sf.sanitiseInput("12")
-        self.assertIsInstance(safe, bool)
-        self.assertFalse(safe)
-
     def test_dictwords_should_return_a_list(self):
         """
         Test dictwords(self)
@@ -901,21 +739,6 @@ class TestSpiderFoot(unittest.TestCase):
 
         dict_names = sf.dictnames()
         self.assertIsInstance(dict_names, list)
-
-    def test_dataParentChildToTree_should_return_dict(self):
-        """
-        Test dataParentChildToTree(self, data)
-        """
-        sf = SpiderFoot(self.default_options)
-
-        invalid_types = [None, "", list(), int()]
-        for invalid_type in invalid_types:
-            with self.subTest(invalid_type=invalid_type):
-                tree = sf.dataParentChildToTree(invalid_type)
-                self.assertIsInstance(tree, dict)
-
-        tree = sf.dataParentChildToTree(dict())
-        self.assertIsInstance(tree, dict)
 
     def test_resolve_host_should_return_list(self):
         """
@@ -969,8 +792,10 @@ class TestSpiderFoot(unittest.TestCase):
         addrs = sf.resolveHost6('one.one.one.one')
         self.assertIsInstance(addrs, list)
         self.assertTrue(addrs)
-        self.assertIn('2606:4700:4700::1001', addrs)
-        self.assertIn('2606:4700:4700::1111', addrs)
+        # TODO: Re-enable this once GitHub runners support IPv6
+        # https://github.com/actions/virtual-environments/issues/668
+        # self.assertIn('2606:4700:4700::1001', addrs)
+        # self.assertIn('2606:4700:4700::1111', addrs)
 
         addrs = sf.resolveHost6(None)
         self.assertFalse(addrs)
@@ -989,33 +814,6 @@ class TestSpiderFoot(unittest.TestCase):
         validate_ip = sf.validateIP('one.one.one.one', '1.1.1.1')
         self.assertIsInstance(validate_ip, bool)
         self.assertTrue(validate_ip)
-
-    def test_resolve_targets_should_return_list(self):
-        """
-        Test resolveTargets(self, target, validateReverse)
-        """
-        sf = SpiderFoot(self.default_options)
-
-        invalid_types = [None, "", list()]
-        for invalid_type in invalid_types:
-            with self.subTest(invalid_type=invalid_type):
-                resolve_targets = sf.resolveTargets(invalid_type, False)
-                self.assertIsInstance(resolve_targets, list)
-
-        target = SpiderFootTarget("spiderfoot.net", "INTERNET_NAME")
-        resolve_targets = sf.resolveTargets(target, False)
-        self.assertIsInstance(resolve_targets, list)
-        self.assertIn('spiderfoot.net', resolve_targets)
-
-        target = SpiderFootTarget("1.1.1.1", "IP_ADDRESS")
-        resolve_targets = sf.resolveTargets(target, False)
-        self.assertIsInstance(resolve_targets, list)
-        self.assertIn('1.1.1.1', resolve_targets)
-
-        target = SpiderFootTarget("127.0.0.1/32", "NETBLOCK_OWNER")
-        resolve_targets = sf.resolveTargets(target, False)
-        self.assertIsInstance(resolve_targets, list)
-        self.assertIn('127.0.0.1', resolve_targets)
 
     @unittest.skip("todo")
     def test_safe_socket(self):
@@ -1036,26 +834,6 @@ class TestSpiderFoot(unittest.TestCase):
 
         sf.safeSSLSocket(None, None, None, None)
         self.assertEqual('TBD', 'TBD')
-
-    def test_parse_robots_txt_should_return_list(self):
-        """
-        Test parseRobotsTxt(self, robotsTxtData)
-        """
-        sf = SpiderFoot(self.default_options)
-
-        invalid_types = [None, "", list(), dict()]
-        for invalid_type in invalid_types:
-            with self.subTest(invalid_type=invalid_type):
-                robots_txt = sf.parseRobotsTxt(invalid_type)
-                self.assertIsInstance(robots_txt, list)
-
-        robots_txt = sf.parseRobotsTxt("disallow:")
-        self.assertIsInstance(robots_txt, list)
-        self.assertFalse(robots_txt)
-
-        robots_txt = sf.parseRobotsTxt("disallow: /disallowed/path\n")
-        self.assertIsInstance(robots_txt, list)
-        self.assertIn("/disallowed/path", robots_txt)
 
     def test_parseHashes_should_return_a_list(self):
         """
@@ -1292,9 +1070,8 @@ class TestSpiderFoot(unittest.TestCase):
 
         invalid_types = [None, "", list()]
         for invalid_type in invalid_types:
-            with self.subTest(invalid_type=invalid_type):
-                with self.assertRaises(TypeError):
-                    sf.sslDerToPem(invalid_type)
+            with self.subTest(invalid_type=invalid_type), self.assertRaises(TypeError):
+                sf.sslDerToPem(invalid_type)
 
     def test_parse_cert_should_return_a_dict(self):
         """
@@ -1434,6 +1211,24 @@ class TestSpiderFoot(unittest.TestCase):
         new_url = sf.removeUrlCreds(url)
         self.assertNotIn("secret", new_url)
 
+    def test_isValidLocalOrLoopbackIp_argument_ip_should_return_a_bool(self):
+        """
+        Test isValidLocalOrLoopbackIp(self, ip: str) -> bool:
+        """
+        sf = SpiderFoot(self.default_options)
+
+        self.assertTrue(sf.isValidLocalOrLoopbackIp('127.0.0.1'))
+        self.assertTrue(sf.isValidLocalOrLoopbackIp('127.0.0.2'))
+        self.assertTrue(sf.isValidLocalOrLoopbackIp('::1'))
+
+        self.assertTrue(sf.isValidLocalOrLoopbackIp('10.1.1.1'))
+        self.assertTrue(sf.isValidLocalOrLoopbackIp('fdd1:a677:c70c:b8c5:1234:1234:1234:1234'))
+
+        self.assertFalse(sf.isValidLocalOrLoopbackIp('1.1.1.1'))
+        self.assertFalse(sf.isValidLocalOrLoopbackIp('2606:4700:4700::1111'))
+
+        self.assertFalse(sf.isValidLocalOrLoopbackIp('invalid ip address'))
+
     def test_useProxyForUrl_argument_url_should_return_a_bool(self):
         """
         Test useProxyForUrl(self, url)
@@ -1459,7 +1254,7 @@ class TestSpiderFoot(unittest.TestCase):
         """
         Test fetchUrl(self, url, fatal=False, cookies=None, timeout=30,
                  useragent="SpiderFoot", headers=None, noLog=False,
-                 postData=None, dontMangle=False, sizeLimit=None,
+                 postData=None, disableContentEncoding=False, sizeLimit=None,
                  headOnly=False, verify=False)
         """
         sf = SpiderFoot(self.default_options)
@@ -1473,7 +1268,7 @@ class TestSpiderFoot(unittest.TestCase):
         """
         Test fetchUrl(self, url, fatal=False, cookies=None, timeout=30,
                  useragent="SpiderFoot", headers=None, noLog=False,
-                 postData=None, dontMangle=False, sizeLimit=None,
+                 postData=None, disableContentEncoding=False, sizeLimit=None,
                  headOnly=False, verify=False)
         """
         sf = SpiderFoot(self.default_options)
@@ -1487,7 +1282,7 @@ class TestSpiderFoot(unittest.TestCase):
         """
         Test fetchUrl(self, url, fatal=False, cookies=None, timeout=30,
                  useragent="SpiderFoot", headers=None, noLog=False,
-                 postData=None, dontMangle=False, sizeLimit=None,
+                 postData=None, disableContentEncoding=False, sizeLimit=None,
                  headOnly=False, verify=False)
         """
         sf = SpiderFoot(self.default_options)
@@ -1502,7 +1297,7 @@ class TestSpiderFoot(unittest.TestCase):
         """
         Test fetchUrl(self, url, fatal=False, cookies=None, timeout=30,
                  useragent="SpiderFoot", headers=None, noLog=False,
-                 postData=None, dontMangle=False, sizeLimit=None,
+                 postData=None, disableContentEncoding=False, sizeLimit=None,
                  headOnly=False, verify=False)
         """
         sf = SpiderFoot(self.default_options)

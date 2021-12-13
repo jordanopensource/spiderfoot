@@ -9,9 +9,10 @@
 # Licence:     GPL
 # -------------------------------------------------------------------------------
 
+import base64
 import json
 import time
-import base64
+
 from spiderfoot import SpiderFootEvent, SpiderFootPlugin
 
 
@@ -28,6 +29,12 @@ class sfp_dehashed(SpiderFootPlugin):
             'model': "COMMERCIAL_ONLY",
             'references': [
                 "https://www.dehashed.com/docs"
+            ],
+            'apiKeyInstructions': [
+                "Visit https://www.dehashed.com/register"
+                "Register a free account",
+                "Visit https://www.dehashed.com/profile",
+                "Your API key is listed under 'API Key'",
             ],
             'favIcon': "https://www.dehashed.com/assets/img/favicon.ico",
             'logo': "https://www.dehashed.com/assets/img/logo.png",
@@ -107,28 +114,28 @@ class sfp_dehashed(SpiderFootPlugin):
         time.sleep(self.opts['pause'])
 
         if res['code'] == "400":
-            self.sf.error("Too many requests were performed in a small amount of time. Please wait a bit before querying the API.")
+            self.error("Too many requests were performed in a small amount of time. Please wait a bit before querying the API.")
             time.sleep(5)
             res = self.sf.fetchUrl(queryString, headers=headers, timeout=15, useragent=self.opts['_useragent'], verify=True)
 
         if res['code'] == "401":
-            self.sf.error("Invalid API credentials")
+            self.error("Invalid API credentials")
             self.errorState = True
             return None
 
         if res['code'] != "200":
-            self.sf.error("Unable to fetch data from Dehashed.")
+            self.error("Unable to fetch data from Dehashed.")
             self.errorState = True
             return None
 
         if res['content'] is None:
-            self.sf.debug('No response from Dehashed')
+            self.debug('No response from Dehashed')
             return None
 
         try:
             return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
+            self.debug(f"Error processing JSON response: {e}")
             return None
 
     # Handle events sent to this module
@@ -138,20 +145,20 @@ class sfp_dehashed(SpiderFootPlugin):
         eventData = event.data
 
         if srcModuleName == self.__name__:
-            return None
+            return
 
         if eventData in self.results:
-            return None
+            return
 
         if self.errorState:
-            return None
+            return
 
         self.results[eventData] = True
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if self.opts['api_key'] == "" or self.opts['api_key_username'] == "":
-            self.sf.error("You enabled sfp_dehashed but did not set an API key/API Key Username!")
+            self.error("You enabled sfp_dehashed but did not set an API key/API Key Username!")
             self.errorState = True
             return
 
@@ -161,7 +168,7 @@ class sfp_dehashed(SpiderFootPlugin):
 
         while currentPage <= maxPages:
             if self.checkForStop():
-                return None
+                return
 
             if self.errorState:
                 break
@@ -169,10 +176,13 @@ class sfp_dehashed(SpiderFootPlugin):
             data = self.query(event, perPage, currentPage)
 
             if not data:
-                return None
+                return
 
             breachResults = set()
             emailResults = set()
+
+            if not data.get('entries'):
+                return
 
             for row in data.get('entries'):
                 email = row.get('email')
@@ -224,6 +234,6 @@ class sfp_dehashed(SpiderFootPlugin):
             currentPage += 1
 
             if data.get('total') < self.opts['per_page']:
-                return None
+                break
 
 # End of sfp_dehashed class

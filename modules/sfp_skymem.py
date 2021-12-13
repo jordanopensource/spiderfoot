@@ -21,7 +21,7 @@ class sfp_skymem(SpiderFootPlugin):
     meta = {
         'name': "Skymem",
         'summary': "Look up e-mail addresses on Skymem.",
-        'flags': [""],
+        'flags': [],
         'useCases': ["Footprint", "Investigate", "Passive"],
         'categories': ["Search Engines"],
         'dataSource': {
@@ -71,10 +71,10 @@ class sfp_skymem(SpiderFootPlugin):
 
         if eventData in self.results:
             return
-        else:
-            self.results[eventData] = True
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.results[eventData] = True
+
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         # Get e-mail addresses on this domain
         res = self.sf.fetchUrl("http://www.skymem.info/srch?q=" + eventData, timeout=self.opts['_fetchtimeout'], useragent=self.opts['_useragent'])
@@ -89,10 +89,10 @@ class sfp_skymem(SpiderFootPlugin):
             # Skip unrelated emails
             mailDom = email.lower().split('@')[1]
             if not self.getTarget().matches(mailDom):
-                self.sf.debug("Skipped address: " + email)
+                self.debug("Skipped address: " + email)
                 continue
 
-            self.sf.info("Found e-mail address: " + email)
+            self.info("Found e-mail address: " + email)
             if email not in self.results:
                 if email.split("@")[0] in self.opts['_genericusers'].split(","):
                     evttype = "EMAILADDR_GENERIC"
@@ -103,7 +103,7 @@ class sfp_skymem(SpiderFootPlugin):
                 self.results[email] = True
 
         # Loop through first 20 pages of results
-        domain_ids = re.findall(r'<a href="/domain/([a-z0-9]+)\?p=', res['content'])
+        domain_ids = re.findall(r'<a href="/domain/([a-z0-9]+)\?p=', str(res['content']))
 
         if not domain_ids:
             return
@@ -121,10 +121,10 @@ class sfp_skymem(SpiderFootPlugin):
                 # Skip unrelated emails
                 mailDom = email.lower().split('@')[1]
                 if not self.getTarget().matches(mailDom):
-                    self.sf.debug("Skipped address: " + email)
+                    self.debug("Skipped address: " + email)
                     continue
 
-                self.sf.info("Found e-mail address: " + email)
+                self.info("Found e-mail address: " + email)
                 if email not in self.results:
                     if email.split("@")[0] in self.opts['_genericusers'].split(","):
                         evttype = "EMAILADDR_GENERIC"
@@ -136,7 +136,7 @@ class sfp_skymem(SpiderFootPlugin):
 
             # Check if we're on the last page of results
             max_page = 0
-            pages = re.findall(r'/domain/' + domain_id + r'\?p=(\d+)', res['content'])
+            pages = re.findall(r'/domain/' + domain_id + r'\?p=(\d+)', str(res['content']))
             for p in pages:
                 if int(p) >= max_page:
                     max_page = int(p)

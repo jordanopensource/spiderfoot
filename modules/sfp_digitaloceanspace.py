@@ -23,7 +23,7 @@ class sfp_digitaloceanspace(SpiderFootPlugin):
     meta = {
         'name': "Digital Ocean Space Finder",
         'summary': "Search for potential Digital Ocean Spaces associated with the target and attempt to list their contents.",
-        'flags': [""],
+        'flags': [],
         'useCases': ["Footprint", "Passive"],
         'categories': ["Crawling and Scanning"],
         'dataSource': {
@@ -73,11 +73,11 @@ class sfp_digitaloceanspace(SpiderFootPlugin):
         res = self.sf.fetchUrl(url, timeout=10, useragent="SpiderFoot", noLog=True)
 
         if not res['content']:
-            return None
+            return
 
         if "NoSuchBucket" in res['content']:
-            self.sf.debug(f"Not a valid bucket: {url}")
-            return None
+            self.debug(f"Not a valid bucket: {url}")
+            return
 
         # Bucket found
         if res['code'] in ["301", "302", "200"]:
@@ -100,7 +100,7 @@ class sfp_digitaloceanspace(SpiderFootPlugin):
             if self.checkForStop():
                 return None
 
-            self.sf.info("Spawning thread to check bucket: " + site)
+            self.info("Spawning thread to check bucket: " + site)
             tname = str(random.SystemRandom().randint(0, 999999999))
             t.append(threading.Thread(name='thread_sfp_digitaloceanspaces_' + tname,
                                       target=self.checkSite, args=(site,)))
@@ -152,18 +152,18 @@ class sfp_digitaloceanspace(SpiderFootPlugin):
         eventData = event.data
 
         if eventData in self.results:
-            return None
-        else:
-            self.results[eventData] = True
+            return
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.results[eventData] = True
+
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if eventName == "LINKED_URL_EXTERNAL":
             if ".digitaloceanspaces.com" in eventData:
                 b = self.sf.urlFQDN(eventData)
                 evt = SpiderFootEvent("CLOUD_STORAGE_BUCKET", b, self.__name__, event)
                 self.notifyListeners(evt)
-            return None
+            return
 
         targets = [eventData.replace('.', '')]
         kw = self.sf.domainKeyword(eventData, self.opts['_internettlds'])
@@ -176,7 +176,7 @@ class sfp_digitaloceanspace(SpiderFootPlugin):
                 suffixes = [''] + self.opts['suffixes'].split(',')
                 for s in suffixes:
                     if self.checkForStop():
-                        return None
+                        return
 
                     b = t + s + "." + e
                     url = "https://" + b

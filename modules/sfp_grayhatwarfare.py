@@ -12,6 +12,7 @@
 import json
 import time
 import urllib
+
 from spiderfoot import SpiderFootEvent, SpiderFootPlugin
 
 
@@ -28,6 +29,12 @@ class sfp_grayhatwarfare(SpiderFootPlugin):
             'model': "FREE_AUTH_LIMITED",
             'references': [
                 "https://buckets.grayhatwarfare.com/docs/api/v1"
+            ],
+            'apiKeyInstructions': [
+                "Visit https://grayhatwarfare.com/register",
+                "Register an account",
+                "Visit https://grayhatwarfare.com/account/settings",
+                "Your API key is listed under 'Api Key'",
             ],
             'favIcon': "https://buckets.grayhatwarfare.com/assets/template/images/favicon.png",
             'logo': "https://buckets.grayhatwarfare.com/assets/images/logo/logo-sm.png",
@@ -99,18 +106,18 @@ class sfp_grayhatwarfare(SpiderFootPlugin):
         time.sleep(self.opts['pause'])
 
         if res['code'] != "200":
-            self.sf.error("Unable to fetch data from Grayhat Warfare API.")
+            self.error("Unable to fetch data from Grayhat Warfare API.")
             self.errorState = True
             return None
 
         if res['content'] is None:
-            self.sf.debug('No response from Grayhat Warfare API.')
+            self.debug('No response from Grayhat Warfare API.')
             return None
 
         try:
             return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
+            self.debug(f"Error processing JSON response: {e}")
             return None
 
     # Handle events sent to this module
@@ -120,17 +127,17 @@ class sfp_grayhatwarfare(SpiderFootPlugin):
         eventData = event.data
 
         if eventData in self.results:
-            return None
+            return
 
         if self.errorState:
-            return None
+            return
 
         self.results[eventData] = True
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         if self.opts['api_key'] == "":
-            self.sf.error("You enabled sfp_grayhatwarfare but did not set an API key!")
+            self.error("You enabled sfp_grayhatwarfare but did not set an API key!")
             self.errorState = True
             return
 
@@ -144,7 +151,7 @@ class sfp_grayhatwarfare(SpiderFootPlugin):
         while currentPage < maxPages:
             currentIndex = currentPage * perPage
             if self.checkForStop():
-                return None
+                return
 
             if self.errorState:
                 break
@@ -152,12 +159,12 @@ class sfp_grayhatwarfare(SpiderFootPlugin):
             data = self.query(keyword=keyword, start=currentIndex)
 
             if not data:
-                return None
+                return
 
             for row in data.get('buckets'):
                 bucketName = row.get('bucket')
                 bucketKeyword = bucketName.split('.')[0]
-                self.sf.debug(bucketKeyword)
+                self.debug(bucketKeyword)
                 if bucketKeyword.startswith(keyword) or bucketKeyword.endswith(keyword):
                     evt = SpiderFootEvent('CLOUD_STORAGE_BUCKET', bucketName, self.__name__, event)
                     self.notifyListeners(evt)

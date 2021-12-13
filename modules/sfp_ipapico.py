@@ -22,7 +22,7 @@ class sfp_ipapico(SpiderFootPlugin):
     meta = {
         'name': "ipapi.co",
         'summary': "Queries ipapi.co to identify geolocation of IP Addresses using ipapi.co API",
-        'flags': [""],
+        'flags': [],
         'useCases': ["Footprint", "Investigate", "Passive"],
         'categories': ["Real World"],
         'dataSource': {
@@ -80,14 +80,15 @@ class sfp_ipapico(SpiderFootPlugin):
         time.sleep(1.5)
 
         if res['content'] is None:
-            self.sf.info(f"No ipapi.co data found for {qry}")
+            self.info(f"No ipapi.co data found for {qry}")
             return None
 
         try:
             return json.loads(res['content'])
         except Exception as e:
-            self.sf.debug(f"Error processing JSON response: {e}")
-            return None
+            self.debug(f"Error processing JSON response: {e}")
+
+        return None
 
     # Handle events sent to this module
     def handleEvent(self, event):
@@ -95,16 +96,20 @@ class sfp_ipapico(SpiderFootPlugin):
         srcModuleName = event.module
         eventData = event.data
 
-        self.sf.debug(f"Received event, {eventName}, from {srcModuleName}")
+        self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
         # Don't look up stuff twice
         if eventData in self.results:
-            self.sf.debug(f"Skipping {eventData}, already checked.")
-            return None
-        else:
-            self.results[eventData] = True
+            self.debug(f"Skipping {eventData}, already checked.")
+            return
+
+        self.results[eventData] = True
 
         data = self.query(eventData)
+
+        if data is None:
+            self.info("No results returned from ipapi.co")
+            return
 
         if data.get('country'):
             location = ', '.join(filter(None, [data.get('city'), data.get('region'), data.get('region_code'), data.get('country_name'), data.get('country')]))
