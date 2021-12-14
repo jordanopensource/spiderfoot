@@ -10,23 +10,27 @@ metadata:
 node_selector:
   doks.digitalocean.com/node-pool: josa-cloud-np
 
+
 steps:
-
-- name: docker  
-  image: plugins/docker
-  settings:
-    repo: josaorg/spiderfoot
-    username:
-      from_secret: docker_username
-    password:
-      from_secret: docker_password
-    auto_tag: true
-
-- name: notify
-  image: plugins/slack
-  settings:
-    webhook:
-      from_secret: slack_webhook
-    channel: heartbeat
-  depends_on:
-  - docker
+  - name: build and release spiderfoot
+    image: plugins/docker
+    settings:
+      # context: josa/
+      # dockerfile: josa/Dockerfile
+      repo: josaorg/spiderfoot
+      tags:
+        - ${DRONE_COMMIT_SHA}
+        - latest
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      auto_tag: false
+  - name: notify on Slack
+    image: plugins/slack
+    settings:
+      webhook:
+        from_secret: slack_webhook
+      channel: heartbeat
+    depends_on:
+      - build and release spiderfoot
