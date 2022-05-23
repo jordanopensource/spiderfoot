@@ -8,10 +8,10 @@
 #
 # Created:     06/04/2012
 # Copyright:   (c) Steve Micallef 2012
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
-from spiderfoot import SpiderFootEvent, SpiderFootPlugin
+from spiderfoot import SpiderFootEvent, SpiderFootHelpers, SpiderFootPlugin
 
 
 class sfp_email(SpiderFootPlugin):
@@ -56,7 +56,7 @@ class sfp_email(SpiderFootPlugin):
 
         self.debug(f"Received event, {eventName}, from {srcModuleName}")
 
-        emails = self.sf.parseEmails(eventData)
+        emails = SpiderFootHelpers.extractEmailsFromText(eventData)
         for email in set(emails):
             evttype = "EMAILADDR"
             email = email.lower()

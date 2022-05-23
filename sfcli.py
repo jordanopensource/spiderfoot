@@ -8,7 +8,7 @@
 #
 # Created:     03/05/2017
 # Copyright:   (c) Steve Micallef 2017
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import argparse
@@ -53,11 +53,12 @@ class bcolors:
 
 
 class SpiderFootCli(cmd.Cmd):
-    version = "3.5.0"
+    version = "4.0.0"
     pipecmd = None
     output = None
     modules = []
     types = []
+    correlationrules = []
     prompt = "sf> "
     nohelp = "[!] Unknown command '%s'."
     knownscans = []
@@ -247,8 +248,7 @@ class SpiderFootCli(cmd.Cmd):
         spaces = 2
         # Find the maximum column sizes
         for r in data:
-            i = 0
-            for c in r:
+            for i, c in enumerate(r):
                 if type(r) == list:
                     # we have  list index
                     cn = str(i)
@@ -263,7 +263,6 @@ class SpiderFootCli(cmd.Cmd):
                 # print(str(cn) + ", " + str(c) + ", " + str(v))
                 if len(v) > maxsize.get(cn, 0):
                     maxsize[cn] = len(v)
-                i += 1
 
         # Adjust for long titles
         if titlemap:
@@ -272,8 +271,7 @@ class SpiderFootCli(cmd.Cmd):
                     maxsize[c] = len(titlemap.get(c, c))
 
         # Display the column titles
-        i = 0
-        for c in cols:
+        for i, c in enumerate(cols):
             if titlemap:
                 t = titlemap.get(c, c)
             else:
@@ -286,19 +284,16 @@ class SpiderFootCli(cmd.Cmd):
             if sdiff > 0 and i < len(cols) - 1:
                 # out += " " * sdiff
                 out.append(" " * sdiff)
-            i += 1
         # out += "\n"
         out.append('\n')
 
         # Then the separator
-        i = 0
-        for c in cols:
+        for i, c in enumerate(cols):
             # out += "-" * ((maxsize[c]+spaces))
             out.append("-" * ((maxsize[c] + spaces)))
             if i < len(cols) - 1:
                 # out += "+"
                 out.append("+")
-            i += 1
         # out += "\n"
         out.append("\n")
 
@@ -591,6 +586,24 @@ class SpiderFootCli(cmd.Cmd):
         self.send_output(d, line, titles={"name": "Module name",
                                           "descr": "Description"})
 
+    # List all SpiderFoot correlation rules
+    def do_correlationrules(self, line, cacheonly=False):
+        """correlations
+        List all available correlation rules and their descriptions."""
+        d = self.request(self.ownopts['cli.server_baseurl'] + "/correlationrules")
+        if not d:
+            return
+
+        if cacheonly:
+            j = json.loads(d)
+            for m in j:
+                self.correlationrules.append(m['name'])
+            return
+
+        self.send_output(d, line, titles={"id": "Correlation rule ID",
+                                          "name": "Name",
+                                          "risk": "Risk"})
+
     # List all SpiderFoot data element types.
     def do_types(self, line, cacheonly=False):
         """types
@@ -686,6 +699,45 @@ class SpiderFootCli(cmd.Cmd):
                 "6": "Status",
                 "7": "Total Elements"
             }
+
+        self.send_output(d, line, titles=titles)
+
+    # Show the correlation results from a scan.
+    def do_correlations(self, line):
+        """correlations <sid> [-c correlation_id]
+        Get the correlation results for scan ID <sid> and optionally the
+        events associated with a correlation result [correlation_id] to
+        get the results for a particular correlation."""
+        c = self.myparseline(line)
+        if len(c[0]) < 1:
+            self.edprint("Invalid syntax.")
+            return
+
+        post = {"id": c[0][0]}
+
+        if "-c" in c[0]:
+            post['correlationId'] = c[0][c[0].index("-c") + 1]
+            url = self.ownopts['cli.server_baseurl'] + "/scaneventresults"
+            titles = {
+                "10": "Type",
+                "1": "Data"
+            }
+        else:
+            url = self.ownopts['cli.server_baseurl'] + "/scancorrelations"
+            titles = {
+                "0": "ID",
+                "1": "Title",
+                "3": "Risk",
+                "7": "Data Elements"
+            }
+
+        d = self.request(url, post=post)
+        if not d:
+            return
+        j = json.loads(d)
+        if len(j) < 1:
+            self.dprint("No results.")
+            return
 
         self.send_output(d, line, titles=titles)
 
@@ -953,7 +1005,7 @@ class SpiderFootCli(cmd.Cmd):
             self.dprint(f"Unable to start scan: {s[1]}")
 
         if "-w" in c[0]:
-            return self.do_logs("{s[1]} -w")
+            return self.do_logs(f"{s[1]} -w")
 
         return None
 
@@ -1088,6 +1140,7 @@ class SpiderFootCli(cmd.Cmd):
             ["ping", "Test connectivity to the SpiderFoot server."],
             ["modules", "List available modules."],
             ["types", "List available data types."],
+            ["correlationrules", "List available correlation rules."],
             ["set", "Set variables and configuration settings."],
             ["scans", "List all scans that have been run or are running."],
             ["start", "Start a new scan."],
@@ -1095,6 +1148,7 @@ class SpiderFootCli(cmd.Cmd):
             ["delete", "Delete a scan."],
             ["scaninfo", "Scan information."],
             ["data", "Show data from a scan's results."],
+            ["correlations", "Show correlation results from a scan."],
             ["summary", "Scan result summary."],
             ["find", "Search for data within scan results."],
             ["query", "Run SQL against the SpiderFoot SQLite database."],
@@ -1304,9 +1358,10 @@ if __name__ == "__main__":
     # Load commands from a file
     if args.e:
         try:
-            cin = open(args.e, "r")
+            with open(args.e, 'r') as f:
+                cin = f.read()
         except BaseException as e:
-            print("Unable to open " + args.e + ":" + " (" + str(e) + ")")
+            print(f"Unable to open {args.e}: ({e})")
             sys.exit(-1)
     else:
         cin = sys.stdin
@@ -1320,9 +1375,8 @@ if __name__ == "__main__":
         s.ownopts['cli.password'] = args.p
     if args.P:
         try:
-            pf = open(args.P, "r")
-            s.ownopts['cli.password'] = pf.readlines()[0].strip('\n')
-            pf.close()
+            with open(args.P, 'r') as f:
+                s.ownopts['cli.password'] = f.readlines()[0].strip('\n')
         except BaseException as e:
             print(f"Unable to open {args.P}: ({e})")
             sys.exit(-1)

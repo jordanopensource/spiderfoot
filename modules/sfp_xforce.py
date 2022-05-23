@@ -8,7 +8,7 @@
 # Created:     23/12/2015
 # Updated:     26/07/2016, Steve Micallef - re-focused to be reputation-centric
 # Copyright:   (c) Koen Van Impe
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import base64
@@ -147,13 +147,13 @@ class sfp_xforce(SpiderFootPlugin):
         url = xforce_url + "/" + querytype + "/" + qry
         res = self.sf.fetchUrl(url, timeout=self.opts['_fetchtimeout'], useragent="SpiderFoot", headers=headers)
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
     # Parse API Response from X-Force Exchange
     # https://exchange.xforce.ibmcloud.com/api/doc/
-    def parseAPIResponse(self, res):
-        if res['content'] is None:
-            self.info("No X-Force Exchange information found")
+    def parseApiResponse(self, res: dict):
+        if not res:
+            self.error("No response from X-Force Exchange.")
             return None
 
         if res['code'] == '400':
@@ -187,6 +187,10 @@ class sfp_xforce(SpiderFootPlugin):
         # Catch all non-200 status codes, and presume something went wrong
         if res['code'] != '200':
             self.error("Failed to retrieve content from X-Force Exchange")
+            return None
+
+        if res['content'] is None:
+            self.info("No X-Force Exchange information found")
             return None
 
         try:

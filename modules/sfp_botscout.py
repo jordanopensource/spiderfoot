@@ -8,14 +8,14 @@
 #
 # Created:     25/07/2016
 # Copyright:   (c) Steve Micallef 2016
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import urllib.error
 import urllib.parse
 import urllib.request
 
-from spiderfoot import SpiderFootEvent, SpiderFootPlugin
+from spiderfoot import SpiderFootEvent, SpiderFootHelpers, SpiderFootPlugin
 
 
 class sfp_botscout(SpiderFootPlugin):
@@ -92,7 +92,7 @@ class sfp_botscout(SpiderFootPlugin):
         return self.parseApiResponse(res)
 
     def queryEmail(self, email):
-        if not self.sf.validEmail(email):
+        if not SpiderFootHelpers.validEmail(email):
             return None
 
         params = urllib.parse.urlencode({
@@ -108,18 +108,22 @@ class sfp_botscout(SpiderFootPlugin):
 
         return self.parseApiResponse(res)
 
-    def parseApiResponse(self, res):
+    def parseApiResponse(self, res: dict):
+        if not res:
+            self.error("No response from BotScout.")
+            return None
+
+        if res['code'] != "200":
+            self.error(f"Unexpected HTTP response code {res['code']} from BotScout.")
+            self.errorState = True
+            return None
+
         if not res['content']:
             self.error("No response from BotScout.")
             return None
 
         if res['content'].startswith("! "):
             self.error(f"Received error from BotScout: {res['content']}")
-            self.errorState = True
-            return None
-
-        if res['code'] != "200":
-            self.error(f"Unexpected HTTP response code {res['code']} from BotScout.")
             self.errorState = True
             return None
 

@@ -7,7 +7,7 @@
 #
 # Created:      30/09/2012
 # Copyright:    (c) Steve Micallef 2012
-# License:      GPL
+# License:      MIT
 # -----------------------------------------------------------------
 import csv
 import html
@@ -125,7 +125,7 @@ class SpiderFootWebUi:
         """Error page."""
         cherrypy.response.status = 500
 
-        if self.config['_debug']:
+        if self.config.get('_debug'):
             cherrypy.response.body = _cperror.get_error_page(status=500, traceback=_cperror.format_exc())
         else:
             cherrypy.response.body = b"<html><body>Error</body></html>"
@@ -191,16 +191,20 @@ class SpiderFootWebUi:
         return templ.render(message=message, docroot=self.docroot, version=__version__)
 
     def cleanUserInput(self: 'SpiderFootWebUi', inputList: list) -> list:
-        """Sanitize user input, poorly.
+        """Convert data to HTML entities; except quotes and ampersands.
 
         Args:
-            inputList (list): TBD
+            inputList (list): list of strings to sanitize
 
         Returns:
             list: sanitized input
 
         Raises:
             TypeError: inputList type was invalid
+
+        Todo:
+            Review all uses of this function, then remove it.
+            Use of this function is overloaded.
         """
         if not isinstance(inputList, list):
             raise TypeError(f"inputList is {type(inputList)}; expected list()")
@@ -212,8 +216,8 @@ class SpiderFootWebUi:
                 ret.append('')
                 continue
             c = html.escape(item, True)
-            c = c.replace("'", '&quot;')
-            # We don't actually want & translated to &amp;
+
+            # Decode '&' and '"' HTML entities
             c = c.replace("&amp;", "&").replace("&quot;", "\"")
             ret.append(c)
 
@@ -674,14 +678,14 @@ class SpiderFootWebUi:
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def scanopts(self: 'SpiderFootWebUi', id: str) -> str:
+    def scanopts(self: 'SpiderFootWebUi', id: str) -> dict:
         """Return configuration used for the specified scan as JSON.
 
         Args:
             id: scan ID
 
         Returns:
-            str: options as JSON string
+            dict: scan options for the specified scan
         """
         dbh = SpiderFootDb(self.config)
         ret = dict()
@@ -1195,11 +1199,11 @@ class SpiderFootWebUi:
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def eventtypes(self: 'SpiderFootWebUi') -> str:
+    def eventtypes(self: 'SpiderFootWebUi') -> list:
         """List all event types.
 
         Returns:
-            str: list of event types
+            list: list of event types
         """
         cherrypy.response.headers['Content-Type'] = "application/json; charset=utf-8"
 
@@ -1214,21 +1218,52 @@ class SpiderFootWebUi:
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def modules(self: 'SpiderFootWebUi') -> str:
+    def modules(self: 'SpiderFootWebUi') -> list:
         """List all modules.
 
         Returns:
-            str: list of modules
+            list: list of modules
         """
         cherrypy.response.headers['Content-Type'] = "application/json; charset=utf-8"
 
-        modinfo = list(self.config['__modules__'].keys())
-        modinfo.sort()
         ret = list()
+
+        modinfo = list(self.config['__modules__'].keys())
+        if not modinfo:
+            return ret
+
+        modinfo.sort()
+
         for m in modinfo:
             if "__" in m:
                 continue
             ret.append({'name': m, 'descr': self.config['__modules__'][m]['descr']})
+
+        return ret
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def correlationrules(self: 'SpiderFootWebUi') -> list:
+        """List all correlation rules.
+
+        Returns:
+            list: list of correlation rules
+        """
+        cherrypy.response.headers['Content-Type'] = "application/json; charset=utf-8"
+
+        ret = list()
+
+        rules = self.config['__correlationrules__']
+        if not rules:
+            return ret
+
+        for r in rules:
+            ret.append({
+                'id': r['id'],
+                'name': r['meta']['name'],
+                'descr': r['meta']['description'],
+                'risk': r['meta']['risk'],
+            })
 
         return ret
 
@@ -1286,7 +1321,8 @@ class SpiderFootWebUi:
         Raises:
             HTTPRedirect: redirect to new scan info page
         """
-        [scanname, scantarget] = self.cleanUserInput([scanname, scantarget])
+        scanname = self.cleanUserInput([scanname])[0]
+        scantarget = self.cleanUserInput([scantarget])[0]
 
         if not scanname:
             if cherrypy.request.headers.get('Accept') and 'application/json' in cherrypy.request.headers.get('Accept'):
@@ -1511,6 +1547,16 @@ class SpiderFootWebUi:
 
         for row in data:
             created = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(row[3]))
+            riskmatrix = {
+                "HIGH": 0,
+                "MEDIUM": 0,
+                "LOW": 0,
+                "INFO": 0
+            }
+            correlations = dbh.scanCorrelationSummary(row[0], by="risk")
+            if correlations:
+                for c in correlations:
+                    riskmatrix[c[0]] = c[1]
 
             if row[4] == 0:
                 started = "Not yet"
@@ -1522,7 +1568,7 @@ class SpiderFootWebUi:
             else:
                 finished = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(row[5]))
 
-            retdata.append([row[0], row[1], row[2], created, started, finished, row[6], row[7]])
+            retdata.append([row[0], row[1], row[2], created, started, finished, row[6], row[7], riskmatrix])
 
         return retdata
 
@@ -1546,8 +1592,18 @@ class SpiderFootWebUi:
         created = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data[2]))
         started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data[3]))
         ended = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data[4]))
+        riskmatrix = {
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0,
+            "INFO": 0
+        }
+        correlations = dbh.scanCorrelationSummary(id, by="risk")
+        if correlations:
+            for c in correlations:
+                riskmatrix[c[0]] = c[1]
 
-        return [data[0], data[1], created, started, ended, data[5]]
+        return [data[0], data[1], created, started, ended, data[5], riskmatrix]
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -1585,13 +1641,39 @@ class SpiderFootWebUi:
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def scaneventresults(self: 'SpiderFootWebUi', id: str, eventType: str, filterfp: bool = False) -> list:
+    def scancorrelations(self: 'SpiderFootWebUi', id: str) -> list:
+        """Correlation results from a scan.
+
+        Args:
+            id (str): scan ID
+
+        Returns:
+            list: correlation result list
+        """
+        retdata = []
+
+        dbh = SpiderFootDb(self.config)
+
+        try:
+            corrdata = dbh.scanCorrelationList(id)
+        except Exception:
+            return retdata
+
+        for row in corrdata:
+            retdata.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]])
+
+        return retdata
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def scaneventresults(self: 'SpiderFootWebUi', id: str, eventType: str = None, filterfp: bool = False, correlationId: str = None) -> list:
         """Return all event results for a scan as JSON.
 
         Args:
             id (str): scan ID
             eventType (str): filter by event type
             filterfp (bool): remove false positives from search results
+            correlationId (str): filter by events associated with a correlation
 
         Returns:
             list: scan results
@@ -1600,8 +1682,11 @@ class SpiderFootWebUi:
 
         dbh = SpiderFootDb(self.config)
 
+        if not eventType:
+            eventType = 'ALL'
+
         try:
-            data = dbh.scanResultEvent(id, eventType, filterfp)
+            data = dbh.scanResultEvent(id, eventType, filterfp, correlationId=correlationId)
         except Exception:
             return retdata
 

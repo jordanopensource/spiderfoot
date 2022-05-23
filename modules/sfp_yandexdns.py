@@ -8,7 +8,7 @@
 #
 # Created:     30/05/2018
 # Copyright:   (c) Steve Micallef 2018
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import dns.resolver
@@ -115,6 +115,7 @@ class sfp_yandexdns(SpiderFootPlugin):
             blacklist_type = "BLACKLISTED_COHOST"
         else:
             self.debug(f"Unexpected event type {eventName}, skipping")
+            return
 
         res = self.queryAddr(eventData)
 

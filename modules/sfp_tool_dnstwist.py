@@ -8,7 +8,7 @@
 #
 # Created:     12/11/2018
 # Copyright:   (c) Steve Micallef 2018
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
@@ -133,10 +133,14 @@ class sfp_tool_dnstwist(SpiderFootPlugin):
             try:
                 j = json.loads(content)
                 for r in j:
-                    if self.getTarget().matches(r['domain-name']):
+                    # Support different formats from DNStwist versions
+                    domain = r.get('domain-name')
+                    if not domain:
+                        domain = r.get('domain')
+                    if self.getTarget().matches(domain):
                         continue
 
-                    evt = SpiderFootEvent("SIMILARDOMAIN", r['domain-name'],
+                    evt = SpiderFootEvent("SIMILARDOMAIN", domain,
                                           self.__name__, event)
                     self.notifyListeners(evt)
             except Exception as e:

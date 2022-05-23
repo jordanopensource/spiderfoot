@@ -7,7 +7,7 @@
 #
 # Created:     2020-08-14
 # Copyright:   (c) bcoles 2020
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
@@ -95,9 +95,13 @@ class sfp_recondev(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
-    def parseAPIResponse(self, res):
+    def parseApiResponse(self, res: dict):
+        if not res:
+            self.error("No response from Recon.dev.")
+            return None
+
         # Future proofing - recon.dev does not implement rate limiting
         if res['code'] == '429':
             self.error("You are being rate-limited by Recon.dev")

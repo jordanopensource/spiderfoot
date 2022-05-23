@@ -1,4 +1,3 @@
-# test_sfp_pgp.py
 import pytest
 import unittest
 
@@ -8,21 +7,14 @@ from spiderfoot import SpiderFootEvent, SpiderFootTarget
 
 
 @pytest.mark.usefixtures
-class TestModulepgp(unittest.TestCase):
-    """
-    Test modules.sfp_pgp
-    """
+class TestModulePgp(unittest.TestCase):
 
     def test_opts(self):
         module = sfp_pgp()
         self.assertEqual(len(module.opts), len(module.optdescs))
 
     def test_setup(self):
-        """
-        Test setup(self, sfc, userOpts=dict())
-        """
         sf = SpiderFoot(self.default_options)
-
         module = sfp_pgp()
         module.setup(sf, dict())
 
@@ -34,10 +26,7 @@ class TestModulepgp(unittest.TestCase):
         module = sfp_pgp()
         self.assertIsInstance(module.producedEvents(), list)
 
-    def test_handleEvent(self):
-        """
-        Test handleEvent(self, event)
-        """
+    def test_handleEvent_no_keyserver_urls_should_set_errorState(self):
         sf = SpiderFoot(self.default_options)
 
         module = sfp_pgp()
@@ -54,6 +43,12 @@ class TestModulepgp(unittest.TestCase):
         source_event = ''
         evt = SpiderFootEvent(event_type, event_data, event_module, source_event)
 
+        module.opts['keyserver_search1'] = ''
+        module.opts['keyserver_search2'] = ''
+        module.opts['keyserver_fetch1'] = ''
+        module.opts['keyserver_fetch2'] = ''
+
         result = module.handleEvent(evt)
 
         self.assertIsNone(result)
+        self.assertTrue(module.errorState)

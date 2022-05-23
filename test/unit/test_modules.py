@@ -1,10 +1,10 @@
-# test_spiderfoot_module_loading.py
-import os
+# test_modules.py
 import pytest
 import unittest
 
 from sflib import SpiderFoot
 from spiderfoot import SpiderFootDb
+from spiderfoot import SpiderFootHelpers
 
 
 @pytest.mark.usefixtures
@@ -15,25 +15,8 @@ class TestSpiderFootModuleLoading(unittest.TestCase):
 
     @staticmethod
     def load_modules(sf):
-        # Go through each module in the modules directory with a .py extension
-        sfModules = dict()
         mod_dir = sf.myPath() + '/modules/'
-        for filename in os.listdir(mod_dir):
-            if not filename.startswith("sfp_"):
-                continue
-            if not filename.endswith(".py"):
-                continue
-
-            modName = filename.split('.')[0]
-
-            # Load and instantiate the module
-            sfModules[modName] = dict()
-            mod = __import__('modules.' + modName, globals(), locals(), [modName])
-            sfModules[modName]['object'] = getattr(mod, modName)()
-            mod_dict = sfModules[modName]['object'].asdict()
-            sfModules[modName].update(mod_dict)
-
-        return sfModules
+        return SpiderFootHelpers.loadModulesAsDict(mod_dir, ['sfp_template.py'])
 
     def test_module_use_cases_are_valid(self):
         sf = SpiderFoot(self.default_options)
@@ -208,18 +191,29 @@ class TestSpiderFootModuleLoading(unittest.TestCase):
             self.assertIsInstance(m.get('consumes'), list)
             self.assertIsInstance(m.get('meta'), dict)
 
-            # not all modules will have a data source (sfp_dnsresolve, sfp_dnscommonsrv, etc)
-            if m.get('dataSource'):
-                self.assertIsInstance(m.get('dataSource'), dict)
-                self.assertTrue(m.get('dataSource').get('website'))
-                self.assertTrue(m.get('dataSource').get('references'))
-                self.assertTrue(m.get('dataSource').get('model'))
-                self.assertTrue(m.get('dataSource').get('description'))
-
-            # output modules do not have use cases, categories, produced events or data source
+            # output modules do not have use cases, categories, produced events, data source, etc
             if module in ["sfp__stor_db", "sfp__stor_stdout"]:
                 continue
 
             self.assertTrue(m.get('cats'))
             self.assertTrue(m.get('group'))
             self.assertTrue(m.get('provides'))
+
+            meta = m.get('meta')
+
+            # not all modules will have a data source (sfp_dnsresolve, sfp_dnscommonsrv, etc)
+            if meta.get('dataSource'):
+                self.assertIsInstance(meta.get('dataSource'), dict)
+                self.assertTrue(meta.get('dataSource').get('website'))
+                self.assertTrue(meta.get('dataSource').get('model'))
+                # self.assertTrue(meta.get('dataSource').get('favIcon'))
+                # self.assertTrue(meta.get('dataSource').get('logo'))
+                # self.assertTrue(meta.get('dataSource').get('references'))
+                # self.assertTrue(meta.get('dataSource').get('description'))
+
+            if module.startswith('sfp_tool_'):
+                self.assertIsInstance(meta.get('toolDetails'), dict)
+                self.assertTrue(meta.get('toolDetails').get('name'))
+                self.assertTrue(meta.get('toolDetails').get('description'))
+                self.assertTrue(meta.get('toolDetails').get('website'))
+                self.assertTrue(meta.get('toolDetails').get('repository'))

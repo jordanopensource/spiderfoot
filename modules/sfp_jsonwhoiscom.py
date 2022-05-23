@@ -7,7 +7,7 @@
 #
 # Created:     2020-06-20
 # Copyright:   (c) bcoles 2020
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
@@ -16,7 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from spiderfoot import SpiderFootEvent, SpiderFootPlugin
+from spiderfoot import SpiderFootEvent, SpiderFootHelpers, SpiderFootPlugin
 
 
 class sfp_jsonwhoiscom(SpiderFootPlugin):
@@ -102,10 +102,14 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
     # Parse API response
-    def parseAPIResponse(self, res):
+    def parseApiResponse(self, res: dict):
+        if not res:
+            self.error("No response from JsonWHOIS.com.")
+            return None
+
         if res['code'] == '404':
             self.debug("No results for query")
             return None
@@ -211,7 +215,7 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
         for contact in contacts:
             email = contact.get('email')
             if email:
-                if self.sf.validEmail(email):
+                if SpiderFootHelpers.validEmail(email):
                     emails.append(email)
 
             name = contact.get("name")
@@ -223,7 +227,7 @@ class sfp_jsonwhoiscom(SpiderFootPlugin):
                 phone = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "").replace(".", "")
                 phones.append(phone)
 
-            country = self.sf.countryNameFromCountryCode(contact.get('country_code'))
+            country = SpiderFootHelpers.countryNameFromCountryCode(contact.get('country_code'))
             location = ', '.join([_f for _f in [contact.get('address'), contact.get('city'), contact.get('state'), contact.get('zip'), country] if _f])
             if location:
                 locations.append(location)

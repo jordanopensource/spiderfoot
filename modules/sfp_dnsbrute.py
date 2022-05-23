@@ -8,9 +8,10 @@
 #
 # Created:     06/07/2017
 # Copyright:   (c) Steve Micallef 2017
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
+import importlib
 import random
 import threading
 import time
@@ -64,22 +65,17 @@ class sfp_dnsbrute(SpiderFootPlugin):
         for opt in list(userOpts.keys()):
             self.opts[opt] = userOpts[opt]
 
-        dicts_dir = f"{self.sf.myPath()}/spiderfoot/dicts/"
-        cslines = list()
         if self.opts['commons']:
-            cs = open(f"{dicts_dir}/subdomains.txt", 'r')
-            cslines = cs.readlines()
-            for s in cslines:
-                s = s.strip()
-                self.sublist[s] = True
+            with importlib.resources.open_text('spiderfoot.dicts', 'subdomains.txt') as f:
+                for s in f.readlines():
+                    s = s.strip()
+                    self.sublist[s] = True
 
-        ttlines = list()
         if self.opts['top10000']:
-            tt = open(f"{dicts_dir}/subdomains-10000.txt", 'r')
-            ttlines = tt.readlines()
-            for s in ttlines:
-                s = s.strip()
-                self.sublist[s] = True
+            with importlib.resources.open_text('spiderfoot.dicts', 'subdomains-10000.txt') as f:
+                for s in f.readlines():
+                    s = s.strip()
+                    self.sublist[s] = True
 
     # What events is this module interested in for input
     def watchedEvents(self):
@@ -202,7 +198,7 @@ class sfp_dnsbrute(SpiderFootPlugin):
             if self.checkForStop():
                 return
 
-            name = sub + "." + eventData
+            name = f"{sub}.{eventData}"
 
             if len(targetList) <= self.opts['_maxthreads']:
                 targetList.append(name)

@@ -8,7 +8,7 @@
 #
 # Created:     25/03/2012
 # Copyright:   (c) Steve Micallef 2012
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
@@ -132,8 +132,11 @@ class sfp_spider(SpiderFootPlugin):
             url = fetched['realurl']  # override the URL if we had a redirect
 
         # Extract links from the content
-        links = self.sf.parseLinks(url, fetched['content'],
-                                   self.getTarget().getNames())
+        links = SpiderFootHelpers.extractLinksFromHtml(
+            url,
+            fetched['content'],
+            self.getTarget().getNames()
+        )
 
         if not links:
             self.debug(f"No links found at {url}")
@@ -157,7 +160,7 @@ class sfp_spider(SpiderFootPlugin):
         returnLinks = dict()
 
         for link in links:
-            linkBase = self.sf.urlBaseUrl(link)
+            linkBase = SpiderFootHelpers.urlBaseUrl(link)
             linkFQDN = self.sf.urlFQDN(link)
 
             # Skip external sites (typical behaviour..)
@@ -318,7 +321,7 @@ class sfp_spider(SpiderFootPlugin):
         totalFetched = 0
         levelsTraversed = 0
         nextLinks = dict()
-        targetBase = self.sf.urlBaseUrl(startingPoint)
+        targetBase = SpiderFootHelpers.urlBaseUrl(startingPoint)
 
         # Are we respecting robots.txt?
         if self.opts['robotsonly'] and targetBase not in self.robotsRules:
@@ -328,7 +331,7 @@ class sfp_spider(SpiderFootPlugin):
                                          verify=False)
             if robotsTxt['content'] is not None:
                 self.debug('robots.txt contents: ' + robotsTxt['content'])
-                self.robotsRules[targetBase] = SpiderFootHelpers.parseRobotsTxt(robotsTxt['content'])
+                self.robotsRules[targetBase] = SpiderFootHelpers.extractUrlsFromRobotsTxt(robotsTxt['content'])
 
         if self.checkForStop():
             return

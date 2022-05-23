@@ -7,7 +7,7 @@
 #
 # Created:      11/03/2013
 # Copyright:    (c) Steve Micallef 2013
-# License:      GPL
+# License:      MIT
 # -----------------------------------------------------------------
 import socket
 import sys
@@ -22,7 +22,7 @@ from collections import OrderedDict
 import dns.resolver
 
 from sflib import SpiderFoot
-from spiderfoot import SpiderFootDb, SpiderFootEvent, SpiderFootPlugin, SpiderFootTarget, SpiderFootHelpers, SpiderFootThreadPool, logger
+from spiderfoot import SpiderFootDb, SpiderFootEvent, SpiderFootPlugin, SpiderFootTarget, SpiderFootHelpers, SpiderFootThreadPool, SpiderFootCorrelator, logger
 
 
 def startSpiderFootScanner(loggingQueue, *args, **kwargs):
@@ -51,7 +51,7 @@ class SpiderFootScanner():
     __modconfig = dict()
     __scanName = None
 
-    def __init__(self, scanName, scanId, targetValue, targetType, moduleList, globalOpts, start=True):
+    def __init__(self, scanName: str, scanId: str, targetValue: str, targetType: str, moduleList: list, globalOpts: dict, start: bool = True) -> None:
         """Initialize SpiderFootScanner object.
 
         Args:
@@ -110,7 +110,6 @@ class SpiderFootScanner():
             raise ValueError("moduleList is empty")
 
         self.__moduleList = moduleList
-
         self.__sf = SpiderFoot(self.__config)
         self.__sf.dbh = self.__dbh
 
@@ -129,7 +128,7 @@ class SpiderFootScanner():
         except (TypeError, ValueError) as e:
             self.__sf.status(f"Scan [{self.__scanId}] failed: {e}")
             self.__setStatus("ERROR-FAILED", None, time.time() * 1000)
-            raise ValueError(f"Invalid target: {e}")
+            raise ValueError(f"Invalid target: {e}") from None
 
         # Save the config current set for this scan
         self.__config['_modulesenabled'] = self.__moduleList
@@ -198,15 +197,18 @@ class SpiderFootScanner():
         # Set the user agent
         self.__config['_useragent'] = self.__sf.optValueToData(self.__config['_useragent'])
 
-        # Get internet TLDs
-        tlddata = self.__sf.cacheGet("internet_tlds", self.__config['_internettlds_cache'])
+        # Set up the Internet TLD list.
+        # If the cached does not exist or has expired, reload it from scratch.
+        tld_data = self.__sf.cacheGet("internet_tlds", self.__config['_internettlds_cache'])
+        if tld_data is None:
+            tld_data = self.__sf.optValueToData(self.__config['_internettlds'])
+            if tld_data is None:
+                self.__sf.status(f"Scan [{self.__scanId}] failed: Could not update TLD list")
+                self.__setStatus("ERROR-FAILED", None, time.time() * 1000)
+                raise ValueError("Could not update TLD list")
+            self.__sf.cachePut("internet_tlds", tld_data)
 
-        # If it wasn't loadable from cache, load it from scratch
-        if tlddata is None:
-            self.__config['_internettlds'] = self.__sf.optValueToData(self.__config['_internettlds'])
-            self.__sf.cachePut("internet_tlds", self.__config['_internettlds'])
-        else:
-            self.__config["_internettlds"] = tlddata.splitlines()
+        self.__config['_internettlds'] = tld_data.splitlines()
 
         self.__setStatus("INITIALIZING", time.time() * 1000, None)
 
@@ -219,14 +221,14 @@ class SpiderFootScanner():
             self.__startScan()
 
     @property
-    def scanId(self):
+    def scanId(self) -> str:
         return self.__scanId
 
     @property
-    def status(self):
+    def status(self) -> str:
         return self.__status
 
-    def __setStatus(self, status, started=None, ended=None):
+    def __setStatus(self, status: str, started: float = None, ended: float = None) -> None:
         """Set the status of the currently running scan (if any).
 
         Args:
@@ -257,7 +259,7 @@ class SpiderFootScanner():
         self.__status = status
         self.__dbh.scanInstanceSet(self.__scanId, started, ended, status)
 
-    def __startScan(self):
+    def __startScan(self) -> None:
         """Start running a scan.
 
         Raises:
@@ -414,19 +416,39 @@ class SpiderFootScanner():
 
         except BaseException as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            self.__sf.error(f"Unhandled exception ({e.__class__.__name__}) encountered during scan."
-                            + "Please report this as a bug: "
-                            + repr(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+            self.__sf.error(
+                f"Unhandled exception ({e.__class__.__name__}) encountered during scan."
+                + "Please report this as a bug: " +
+                + repr(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            )
             self.__sf.status(f"Scan [{self.__scanId}] failed: {e}")
             self.__setStatus("ERROR-FAILED", None, time.time() * 1000)
 
         finally:
             if not failed:
-                self.__sf.status(f"Scan [{self.__scanId}] completed.")
                 self.__setStatus("FINISHED", None, time.time() * 1000)
+                self.runCorrelations()
+                self.__sf.status(f"Scan [{self.__scanId}] completed.")
             self.__dbh.close()
 
-    def waitForThreads(self):
+    def runCorrelations(self) -> None:
+        """Run correlation rules."""
+
+        self.__sf.status(f"Running {len(self.__config['__correlationrules__'])} correlation rules.")
+        ruleset = dict()
+        for rule in self.__config['__correlationrules__']:
+            ruleset[rule['id']] = rule['rawYaml']
+        corr = SpiderFootCorrelator(self.__dbh, ruleset, self.__scanId)
+        corr.run_correlations()
+
+    def waitForThreads(self) -> None:
+        """Wait for threads.
+
+        Raises:
+            TypeError: queue tried to process a malformed event
+            AssertionError: scan halted for some reason
+        """
+
         counter = 0
 
         try:
@@ -499,7 +521,15 @@ class SpiderFootScanner():
                 mod._stopScanning = True
             self.__sharedThreadPool.shutdown(wait=True)
 
-    def threadsFinished(self, log_status=False):
+    def threadsFinished(self, log_status: bool = False) -> bool:
+        """Check if all threads are complete.
+
+        Args:
+            log_status (bool): print thread queue status to debug log
+
+        Returns:
+            bool: True if all threads are finished
+        """
         if self.eventQueue is None:
             return True
 

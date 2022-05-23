@@ -7,7 +7,7 @@
 #
 # Created:     03/05/2020
 # Copyright:   (c) Steve Micallef 2020
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import os.path
@@ -126,6 +126,7 @@ class sfp_tool_nmap(SpiderFootPlugin):
         else:
             self.error("Could not recognize your nmap path configuration.")
             self.errorState = True
+            return
 
         # If tool is not found, abort
         if not os.path.isfile(exe):

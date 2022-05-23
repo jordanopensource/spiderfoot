@@ -8,7 +8,7 @@
 #
 # Created:     04/02/2018
 # Copyright:   (c) Steve Micallef 2018
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import dns.resolver
@@ -112,6 +112,7 @@ class sfp_quad9(SpiderFootPlugin):
             blacklist_type = "BLACKLISTED_COHOST"
         else:
             self.debug(f"Unexpected event type {eventName}, skipping")
+            return
 
         # Check that it resolves first, as it becomes a valid
         # malicious host only if NOT resolved by Quad9.

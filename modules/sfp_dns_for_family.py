@@ -7,7 +7,7 @@
 #
 # Created:     2021-10-11
 # Copyright:   (c) bcoles 2021
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import dns.resolver
@@ -99,6 +99,7 @@ class sfp_dns_for_family(SpiderFootPlugin):
             blacklist_type = "BLACKLISTED_COHOST"
         else:
             self.debug(f"Unexpected event type {eventName}, skipping")
+            return
 
         res = self.queryAddr(eventData)
 

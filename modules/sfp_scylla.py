@@ -6,7 +6,7 @@
 #
 # Created:     2019-09-06
 # Copyright:   (c) bcoles 2019
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
@@ -15,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from spiderfoot import SpiderFootEvent, SpiderFootPlugin
+from spiderfoot import SpiderFootEvent, SpiderFootHelpers, SpiderFootPlugin
 
 
 class sfp_scylla(SpiderFootPlugin):
@@ -162,7 +162,7 @@ class sfp_scylla(SpiderFootPlugin):
                 if not email:
                     continue
 
-                if not self.sf.validEmail(email):
+                if not SpiderFootHelpers.validEmail(email):
                     self.debug("Skipping invalid email address: " + email)
                     continue
 

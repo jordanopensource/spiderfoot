@@ -413,7 +413,7 @@ class TestSpiderFootDb(unittest.TestCase):
         sfdb = SpiderFootDb(self.default_options, False)
 
         instance_id = "example instance id"
-        invalid_types = [None, list(), dict()]
+        invalid_types = [None, dict()]
         for invalid_type in invalid_types:
             with self.subTest(invalid_type=invalid_type):
                 with self.assertRaises(TypeError):
@@ -491,7 +491,7 @@ class TestSpiderFootDb(unittest.TestCase):
         """
         sfdb = SpiderFootDb(self.default_options, False)
         instance_id = "example instance id"
-        scan_instance = sfdb.scanErrors(instance_id, None)
+        scan_instance = sfdb.scanErrors(instance_id)
         self.assertIsInstance(scan_instance, list)
 
     def test_scanErrors_argument_instanceId_of_invalid_type_should_raise_TypeError(self):
@@ -500,12 +500,11 @@ class TestSpiderFootDb(unittest.TestCase):
         """
         sfdb = SpiderFootDb(self.default_options, False)
 
-        limit = None
         invalid_types = [None, list(), dict(), int()]
         for invalid_type in invalid_types:
             with self.subTest(invalid_type=invalid_type):
                 with self.assertRaises(TypeError):
-                    sfdb.scanErrors(invalid_type, limit)
+                    sfdb.scanErrors(invalid_type)
 
     def test_scanInstanceDelete(self):
         """
@@ -1249,3 +1248,36 @@ class TestSpiderFootDb(unittest.TestCase):
             with self.subTest(invalid_type=invalid_type):
                 with self.assertRaises(TypeError):
                     sfdb.scanElementChildrenAll(instance_id, invalid_type)
+
+    def test_correlationResultCreate_arguments_of_invalid_type_should_raise_TypeError(self):
+        sfdb = SpiderFootDb(self.default_options, False)
+
+        invalid_types = [None, list(), dict(), int()]
+        for invalid_type in invalid_types:
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate(invalid_type, "", "", "", "", "", "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", invalid_type, "", "", "", "", "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", "", invalid_type, "", "", "", "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", "", "", invalid_type, "", "", "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", "", "", "", invalid_type, "", "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", "", "", "", "", invalid_type, "", [])
+
+            with self.subTest(invalid_type=invalid_type):
+                with self.assertRaises(TypeError):
+                    sfdb.correlationResultCreate("", "", "", "", "", "", invalid_type, [])

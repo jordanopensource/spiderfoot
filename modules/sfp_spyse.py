@@ -9,13 +9,13 @@
 # Created:     2020-02-22
 # Updated:     2020-05-06
 # Copyright:   (c) bcoles 2020
-# Licence:     GPL
+# Licence:     MIT
 # -------------------------------------------------------------------------------
 
 import json
 import time
 
-from spiderfoot import SpiderFootEvent, SpiderFootPlugin
+from spiderfoot import SpiderFootEvent, SpiderFootHelpers, SpiderFootPlugin
 
 
 class sfp_spyse(SpiderFootPlugin):
@@ -169,7 +169,7 @@ class sfp_spyse(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
     def queryDomainDetails(self, qry):
         """Query domain details
@@ -195,7 +195,7 @@ class sfp_spyse(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
     def queryIPPort(self, qry):
         """Query IPv4 port lookup
@@ -225,7 +225,7 @@ class sfp_spyse(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
     def queryDomainsOnIP(self, qry, currentOffset):
         """Query domains on IP
@@ -275,9 +275,9 @@ class sfp_spyse(SpiderFootPlugin):
 
         time.sleep(self.opts['delay'])
 
-        return self.parseAPIResponse(res)
+        return self.parseApiResponse(res)
 
-    def parseAPIResponse(self, res):
+    def parseApiResponse(self, res: dict):
         """Parse API response
 
         https://spyse-dev.readme.io/reference/quick-start
@@ -288,6 +288,10 @@ class sfp_spyse(SpiderFootPlugin):
         Returns:
             dict: JSON formatted results
         """
+        if not res:
+            self.error("No response from Spyse.")
+            return None
+
         if res['code'] == '400':
             self.error("Malformed request")
             return None
@@ -362,6 +366,7 @@ class sfp_spyse(SpiderFootPlugin):
             self.retrieve_subdomains(event)
         else:
             self.debug(f"Unexpected event type {event.eventType}, skipping")
+            return
 
     def retrieve_cohosts(self, event):
         cohosts = list()
@@ -630,7 +635,7 @@ class sfp_spyse(SpiderFootPlugin):
             domain_emails = domain_http_extract.get("emails")
             if domain_emails:
                 for email in domain_emails:
-                    if self.sf.validEmail(email):
+                    if SpiderFootHelpers.validEmail(email):
                         evt = SpiderFootEvent('EMAILADDR', email, self.__name__, event)
                         self.notifyListeners(evt)
 
