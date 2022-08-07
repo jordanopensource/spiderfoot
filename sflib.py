@@ -22,7 +22,6 @@ import socket
 import ssl
 import sys
 import time
-import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -238,19 +237,6 @@ class SpiderFoot:
 
         self.log.debug(f"{message}", extra={'scanId': self._scanId})
 
-    @staticmethod
-    def myPath() -> str:
-        """This will get us the program's directory, even if we are frozen using py2exe.
-
-        Returns:
-            str: Program root directory
-        """
-        # Determine whether we've been compiled by py2exe
-        if hasattr(sys, "frozen"):
-            return os.path.dirname(sys.executable)
-
-        return os.path.dirname(__file__)
-
     def hashstring(self, string: str) -> str:
         """Returns a SHA256 hash of the specified input.
 
@@ -266,7 +252,7 @@ class SpiderFoot:
         return hashlib.sha256(s.encode('raw_unicode_escape')).hexdigest()
 
     def cachePut(self, label: str, data: str) -> None:
-        """Store data to the cache
+        """Store data to the cache.
 
         Args:
             label (str): Name of the cached data to be used when retrieving the cached data.
@@ -288,7 +274,7 @@ class SpiderFoot:
                 fp.write(data)
 
     def cacheGet(self, label: str, timeoutHrs: int) -> str:
-        """Retreive data from the cache
+        """Retreive data from the cache.
 
         Args:
             label (str): Name of the cached data to retrieve
@@ -298,7 +284,7 @@ class SpiderFoot:
         Returns:
             str: cached data
         """
-        if label is None:
+        if not label:
             return None
 
         pathLabel = hashlib.sha224(label.encode('utf-8')).hexdigest()
@@ -838,48 +824,6 @@ class SpiderFoot:
                     ret.append(host)
         return ret
 
-    def dictwords(self) -> set:
-        """Return dictionary words from several language dictionaries.
-
-        Returns:
-            set: words from dictionaries
-        """
-        words = set()
-
-        dicts = ["english", "german", "french", "spanish"]
-
-        for d in dicts:
-            try:
-                with io.open(f"{self.myPath()}/spiderfoot/dicts/ispell/{d}.dict", 'r', encoding='utf8', errors='ignore') as dict_file:
-                    for w in dict_file.readlines():
-                        words.add(w.strip().lower().split('/')[0])
-            except BaseException as e:
-                self.debug(f"Could not read dictionary: {e}")
-                continue
-
-        return words
-
-    def dictnames(self) -> set:
-        """Return list of human names.
-
-        Returns:
-            set: human names
-        """
-        words = set()
-
-        dicts = ["names"]
-
-        for d in dicts:
-            try:
-                with open(f"{self.myPath()}/spiderfoot/dicts/ispell/{d}.dict", 'r') as dict_file:
-                    for w in dict_file.readlines():
-                        words.add(w.strip().lower().split('/')[0])
-            except BaseException as e:
-                self.debug(f"Could not read dictionary: {e}")
-                continue
-
-        return words
-
     def resolveHost(self, host: str) -> list:
         """Return a normalised IPv4 resolution of a hostname.
 
@@ -1158,17 +1102,6 @@ class SpiderFoot:
 
         return ret
 
-    def urlEncodeUnicode(self, url: str) -> str:
-        """Encode a string as unicode.
-
-        Args:
-            url (str): URL to encode
-
-        Returns:
-            str: unicode string
-        """
-        return re.sub('[\x80-\xFF]', lambda c: '%%%02x' % ord(c.group(0)), url)
-
     def getSession(self) -> 'requests.sessions.Session':
         """Return requests session object.
 
@@ -1375,11 +1308,9 @@ class SpiderFoot:
                 )
             except Exception as e:
                 if noLog:
-                    self.debug(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {url}")
-                    self.debug(traceback.format_exc())
+                    self.debug(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {url}", exc_info=True)
                 else:
-                    self.error(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {url}")
-                    self.error(traceback.format_exc())
+                    self.error(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {url}", exc_info=True)
 
                 return result
 
@@ -1421,11 +1352,9 @@ class SpiderFoot:
 
                 except Exception as e:
                     if noLog:
-                        self.debug(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {result['realurl']}")
-                        self.debug(traceback.format_exc())
+                        self.debug(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {result['realurl']}", exc_info=True)
                     else:
-                        self.error(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {result['realurl']}")
-                        self.error(traceback.format_exc())
+                        self.error(f"Unexpected exception ({e}) occurred fetching (HEAD only) URL: {result['realurl']}", exc_info=True)
 
                     return result
 
@@ -1464,11 +1393,9 @@ class SpiderFoot:
             return result
         except Exception as e:
             if noLog:
-                self.debug(f"Unexpected exception ({e}) occurred fetching URL: {url}")
-                self.debug(traceback.format_exc())
+                self.debug(f"Unexpected exception ({e}) occurred fetching URL: {url}", exc_info=True)
             else:
-                self.error(f"Unexpected exception ({e}) occurred fetching URL: {url}")
-                self.error(traceback.format_exc())
+                self.error(f"Unexpected exception ({e}) occurred fetching URL: {url}", exc_info=True)
 
             return result
 
@@ -1522,9 +1449,7 @@ class SpiderFoot:
                     result["content"] = res.content
 
         except Exception as e:
-            self.error(f"Unexpected exception ({e}) occurred parsing response for URL: {url}")
-            self.error(traceback.format_exc())
-
+            self.error(f"Unexpected exception ({e}) occurred parsing response for URL: {url}", exc_info=True)
             result['content'] = None
             result['status'] = str(e)
 
