@@ -5,7 +5,7 @@ type: kubernetes
 name: default
 
 metadata:
-  namespace: josa-builds
+  namespace: builds
 
 node_selector:
   doks.digitalocean.com/node-pool: josa-cloud-np
