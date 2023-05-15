@@ -5,6 +5,9 @@ import os
 import os.path
 import random
 import re
+import ssl
+import sys
+import typing
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -14,6 +17,52 @@ import networkx as nx
 from bs4 import BeautifulSoup, SoupStrainer
 from networkx.readwrite.gexf import GEXFWriter
 import phonenumbers
+
+
+if sys.version_info >= (3, 8):  # PEP 589 support (TypedDict)
+    class _GraphNode(typing.TypedDict):
+        id: str  # noqa: A003
+        label: str
+        x: int
+        y: int
+        size: str
+        color: str
+
+    class _GraphEdge(typing.TypedDict):
+        id: str  # noqa: A003
+        source: str
+        target: str
+
+    class _Graph(typing.TypedDict, total=False):
+        nodes: typing.List[_GraphNode]
+        edges: typing.List[_GraphEdge]
+
+    class Tree(typing.TypedDict):
+        name: str
+        children: typing.Optional[typing.List["Tree"]]
+
+    class ExtractedLink(typing.TypedDict):
+        source: str
+        original: str
+else:
+    _GraphNode = typing.Dict[str, typing.Union[str, int]]
+
+    _GraphEdge = typing.Dict[str, str]
+
+    _GraphObject = typing.Union[_GraphNode, _GraphEdge]
+
+    _Graph = typing.Dict[str, typing.List[_GraphObject]]
+
+    _Tree_name = str
+
+    _Tree_children = typing.Optional[typing.List["Tree"]]
+
+    Tree = typing.Dict[str, typing.Union[_Tree_name, _Tree_children]]
+
+    ExtractedLink = typing.Dict[str, str]
+
+
+EmptyTree = typing.Dict[None, object]
 
 
 class SpiderFootHelpers():
@@ -69,7 +118,7 @@ class SpiderFootHelpers():
         return path
 
     @staticmethod
-    def loadModulesAsDict(path: str, ignore_files: list = None) -> dict:
+    def loadModulesAsDict(path: str, ignore_files: typing.Optional[typing.List[str]] = None) -> dict:
         """Load modules from modules directory.
 
         Args:
@@ -123,15 +172,15 @@ class SpiderFootHelpers():
         return sfModules
 
     @staticmethod
-    def loadCorrelationRulesRaw(path: str, ignore_files: list = None) -> dict:
+    def loadCorrelationRulesRaw(path: str, ignore_files: typing.Optional[typing.List[str]] = None) -> typing.Dict[str, str]:
         """Load correlation rules from correlations directory.
 
         Args:
             path (str): file system path for correlations directory
-            ignore_files (list): List of module file names to ignore
+            ignore_files (list[str]): List of module file names to ignore
 
         Returns:
-            dict: raw correlation rules
+            dict[str, str]: raw correlation rules
 
         Raises:
             TypeError: ignore file list was invalid
@@ -146,7 +195,7 @@ class SpiderFootHelpers():
         if not os.path.isdir(path):
             raise ValueError(f"Correlations directory does not exist: {path}")
 
-        correlationRulesRaw = dict()
+        correlationRulesRaw: typing.Dict[str, str] = dict()
         for filename in os.listdir(path):
             if not filename.endswith(".yaml"):
                 continue
@@ -160,7 +209,7 @@ class SpiderFootHelpers():
         return correlationRulesRaw
 
     @staticmethod
-    def targetTypeFromString(target: str) -> str:
+    def targetTypeFromString(target: str) -> typing.Optional[str]:
         """Return the scan target seed data type for the specified scan target input.
 
         Args:
@@ -196,7 +245,7 @@ class SpiderFootHelpers():
         return None
 
     @staticmethod
-    def urlRelativeToAbsolute(url: str) -> str:
+    def urlRelativeToAbsolute(url: str) -> typing.Optional[str]:
         """Turn a relative URL path into an absolute path.
 
         Args:
@@ -214,7 +263,7 @@ class SpiderFootHelpers():
         if '..' not in url:
             return url
 
-        finalBits = list()
+        finalBits: typing.List[str] = list()
 
         for chunk in url.split('/'):
             if chunk != '..':
@@ -234,7 +283,7 @@ class SpiderFootHelpers():
         return '/'.join(finalBits)
 
     @staticmethod
-    def urlBaseDir(url: str) -> str:
+    def urlBaseDir(url: str) -> typing.Optional[str]:
         """Extract the top level directory from a URL
 
         Args:
@@ -264,7 +313,7 @@ class SpiderFootHelpers():
         return base + '/'
 
     @staticmethod
-    def urlBaseUrl(url: str) -> str:
+    def urlBaseUrl(url: str) -> typing.Optional[str]:
         """Extract the scheme and domain from a URL.
 
         Note: Does not return the trailing slash! So you can do .endswith() checks.
@@ -292,19 +341,19 @@ class SpiderFootHelpers():
         return bits.group(1).lower()
 
     @staticmethod
-    def dictionaryWordsFromWordlists(wordlists: list = None) -> set:
+    def dictionaryWordsFromWordlists(wordlists: typing.Optional[typing.List[str]] = None) -> typing.Set[str]:
         """Return dictionary words from several language dictionaries.
 
         Args:
-            wordlists (list): list of wordlist file names to read (excluding file extension).
+            wordlists (list[str]): list of wordlist file names to read (excluding file extension).
 
         Returns:
-            set: words from dictionaries
+            set[str]: words from dictionaries
 
         Raises:
             IOError: Error reading wordlist file
         """
-        words = set()
+        words: typing.Set[str] = set()
 
         if wordlists is None:
             wordlists = ["english", "german", "french", "spanish"]
@@ -320,19 +369,19 @@ class SpiderFootHelpers():
         return words
 
     @staticmethod
-    def humanNamesFromWordlists(wordlists: list = None) -> set:
+    def humanNamesFromWordlists(wordlists: typing.Optional[typing.List[str]] = None) -> typing.Set[str]:
         """Return list of human names from wordlist file.
 
         Args:
-            wordlists (list): list of wordlist file names to read (excluding file extension).
+            wordlists (list[str]): list of wordlist file names to read (excluding file extension).
 
         Returns:
-            set: human names from wordlists
+            set[str]: human names from wordlists
 
         Raises:
             IOError: Error reading wordlist file
         """
-        words = set()
+        words: typing.Set[str] = set()
 
         if wordlists is None:
             wordlists = ["names"]
@@ -348,19 +397,19 @@ class SpiderFootHelpers():
         return words
 
     @staticmethod
-    def usernamesFromWordlists(wordlists: list = None) -> set:
+    def usernamesFromWordlists(wordlists: typing.Optional[typing.List[str]] = None) -> typing.Set[str]:
         """Return list of usernames from wordlist file.
 
         Args:
-            wordlists (list): list of wordlist file names to read (excluding file extension).
+            wordlists (list[str]): list of wordlist file names to read (excluding file extension).
 
         Returns:
-            set: usernames from wordlists
+            set[str]: usernames from wordlists
 
         Raises:
             IOError: Error reading wordlist file
         """
-        words = set()
+        words: typing.Set[str] = set()
 
         if wordlists is None:
             wordlists = ["generic-usernames"]
@@ -376,14 +425,14 @@ class SpiderFootHelpers():
         return words
 
     @staticmethod
-    def buildGraphGexf(root: str, title: str, data: list, flt: list = None) -> str:
+    def buildGraphGexf(root: str, title: str, data: typing.List[str], flt: typing.Optional[typing.List[str]] = None) -> str:
         """Convert supplied raw data into GEXF (Graph Exchange XML Format) format (e.g. for Gephi).
 
         Args:
             root (str): TBD
             title (str): unused
-            data (list): Scan result as list
-            flt (list): List of event types to include. If not set everything is included.
+            data (list[str]): Scan result as list
+            flt (list[str]): List of event types to include. If not set everything is included.
 
         Returns:
             str: GEXF formatted XML
@@ -394,7 +443,7 @@ class SpiderFootHelpers():
         mapping = SpiderFootHelpers.buildGraphData(data, flt)
         graph = nx.Graph()
 
-        nodelist = dict()
+        nodelist: typing.Dict[str, int] = dict()
         ncounter = 0
         for pair in mapping:
             (dst, src) = pair
@@ -431,13 +480,13 @@ class SpiderFootHelpers():
         return str(gexf).encode('utf-8')
 
     @staticmethod
-    def buildGraphJson(root: str, data: list, flt: list = None) -> str:
+    def buildGraphJson(root: str, data: typing.List[str], flt: typing.Optional[typing.List[str]] = None) -> str:
         """Convert supplied raw data into JSON format for SigmaJS.
 
         Args:
             root (str): TBD
-            data (list): Scan result as list
-            flt (list): List of event types to include. If not set everything is included.
+            data (list[str]): Scan result as list
+            flt (list[str]): List of event types to include. If not set everything is included.
 
         Returns:
             str: TBD
@@ -446,11 +495,11 @@ class SpiderFootHelpers():
             flt = []
 
         mapping = SpiderFootHelpers.buildGraphData(data, flt)
-        ret = dict()
+        ret: _Graph = {}
         ret['nodes'] = list()
         ret['edges'] = list()
 
-        nodelist = dict()
+        nodelist: typing.Dict[str, int] = dict()
         ecounter = 0
         ncounter = 0
         for pair in mapping:
@@ -506,16 +555,16 @@ class SpiderFootHelpers():
         return json.dumps(ret)
 
     @staticmethod
-    def buildGraphData(data: list, flt: list = None) -> set:
+    def buildGraphData(data: typing.List[str], flt: typing.Optional[typing.List[str]] = None) -> typing.Set[typing.Tuple[str, str]]:
         """Return a format-agnostic collection of tuples to use as the
         basis for building graphs in various formats.
 
         Args:
-            data (list): Scan result as list
-            flt (list): List of event types to include. If not set everything is included.
+            data (list[str]): Scan result as list
+            flt (list[str]): List of event types to include. If not set everything is included.
 
         Returns:
-            set: TBD
+            set[tuple[str, str]]: TBD
 
         Raises:
             ValueError: data value was invalid
@@ -530,11 +579,11 @@ class SpiderFootHelpers():
         if not data:
             raise ValueError("data is empty")
 
-        def get_next_parent_entities(item: str, pids: list = None) -> list:
+        def get_next_parent_entities(item: str, pids: typing.Optional[typing.List[str]] = None) -> typing.List[str]:
             if not pids:
                 pids = []
 
-            ret = list()
+            ret: typing.List[str] = list()
 
             for [parent, entity_id] in parents[item]:
                 if entity_id in pids:
@@ -547,9 +596,9 @@ class SpiderFootHelpers():
                         ret.append(p)
             return ret
 
-        mapping = set()
-        entities = dict()
-        parents = dict()
+        mapping: typing.Set[typing.Tuple[str, str]] = set()
+        entities: typing.Dict[str, bool] = dict()
+        parents: typing.Dict[str, typing.List[typing.List[str]]] = dict()
 
         for row in data:
             if len(row) != 15:
@@ -583,7 +632,7 @@ class SpiderFootHelpers():
         return mapping
 
     @staticmethod
-    def dataParentChildToTree(data: dict) -> dict:
+    def dataParentChildToTree(data: typing.Dict[str, typing.Optional[typing.List[str]]]) -> typing.Union[Tree, EmptyTree]:
         """Converts a dictionary of k -> array to a nested
         tree that can be digested by d3 for visualizations.
 
@@ -603,8 +652,8 @@ class SpiderFootHelpers():
         if not data:
             raise ValueError("data is empty")
 
-        def get_children(needle: str, haystack: dict) -> list:
-            ret = list()
+        def get_children(needle: str, haystack: typing.Dict[str, typing.Optional[typing.List[str]]]) -> typing.Optional[typing.List[Tree]]:
+            ret: typing.List[Tree] = list()
 
             if needle not in list(haystack.keys()):
                 return None
@@ -721,7 +770,7 @@ class SpiderFootHelpers():
         return str(uuid.uuid4()).split("-")[0].upper()
 
     @staticmethod
-    def extractLinksFromHtml(url: str, data: str, domains: list) -> dict:
+    def extractLinksFromHtml(url: str, data: str, domains: typing.Optional[typing.List[str]]) -> typing.Dict[str, ExtractedLink]:
         """Find all URLs within the supplied content.
 
         This function does not fetch any URLs.
@@ -745,7 +794,7 @@ class SpiderFootHelpers():
         Raises:
             TypeError: argument was invalid type
         """
-        returnLinks = dict()
+        returnLinks: typing.Dict[str, ExtractedLink] = dict()
 
         if not isinstance(url, str):
             raise TypeError(f"url {type(url)}; expected str()")
@@ -766,7 +815,7 @@ class SpiderFootHelpers():
             'form': 'action'
         }
 
-        links = []
+        links: typing.List[typing.Union[typing.List[str], str]] = []
 
         try:
             for t in list(tags.keys()):
@@ -779,8 +828,6 @@ class SpiderFootHelpers():
         try:
             proto = url.split(":")[0]
         except BaseException:
-            proto = "http"
-        if proto is None:
             proto = "http"
 
         # Loop through all the URLs/links found
@@ -843,16 +890,16 @@ class SpiderFootHelpers():
         return returnLinks
 
     @staticmethod
-    def extractHashesFromText(data: str) -> list:
+    def extractHashesFromText(data: str) -> typing.List[typing.Tuple[str, str]]:
         """Extract all hashes within the supplied content.
 
         Args:
             data (str): text to search for hashes
 
         Returns:
-            list: list of hashes
+            list[tuple[str, str]]: list of hashes
         """
-        ret = list()
+        ret: typing.List[typing.Tuple[str, str]] = list()
 
         if not isinstance(data, str):
             return ret
@@ -872,21 +919,21 @@ class SpiderFootHelpers():
         return ret
 
     @staticmethod
-    def extractUrlsFromRobotsTxt(robotsTxtData: str) -> list:
+    def extractUrlsFromRobotsTxt(robotsTxtData: str) -> typing.List[str]:
         """Parse the contents of robots.txt.
 
         Args:
             robotsTxtData (str): robots.txt file contents
 
         Returns:
-            list: list of patterns which should not be followed
+            list[str]: list of patterns which should not be followed
 
         Todo:
             Check and parse User-Agent.
 
             Fix whitespace parsing; ie, " " is not a valid disallowed path
         """
-        returnArr = list()
+        returnArr: typing.List[str] = list()
 
         if not isinstance(robotsTxtData, str):
             return returnArr
@@ -900,19 +947,19 @@ class SpiderFootHelpers():
         return returnArr
 
     @staticmethod
-    def extractPgpKeysFromText(data: str) -> list:
+    def extractPgpKeysFromText(data: str) -> typing.List[str]:
         """Extract all PGP keys within the supplied content.
 
         Args:
             data (str): text to search for PGP keys
 
         Returns:
-            list: list of PGP keys
+            list[str]: list of PGP keys
         """
         if not isinstance(data, str):
             return list()
 
-        keys = set()
+        keys: typing.Set[str] = set()
 
         pattern = re.compile("(-----BEGIN.*?END.*?BLOCK-----)", re.MULTILINE | re.DOTALL)
         for key in re.findall(pattern, data):
@@ -922,19 +969,19 @@ class SpiderFootHelpers():
         return list(keys)
 
     @staticmethod
-    def extractEmailsFromText(data: str) -> list:
+    def extractEmailsFromText(data: str) -> typing.List[str]:
         """Extract all email addresses within the supplied content.
 
         Args:
             data (str): text to search for email addresses
 
         Returns:
-            list: list of email addresses
+            list[str]: list of email addresses
         """
         if not isinstance(data, str):
             return list()
 
-        emails = set()
+        emails: typing.Set[str] = set()
         matches = re.findall(r'([\%a-zA-Z\.0-9_\-\+]+@[a-zA-Z\.0-9\-]+\.[a-zA-Z\.0-9\-]+)', data)
 
         for match in matches:
@@ -944,7 +991,7 @@ class SpiderFootHelpers():
         return list(emails)
 
     @staticmethod
-    def extractIbansFromText(data: str) -> list:
+    def extractIbansFromText(data: str) -> typing.List[str]:
         """Find all International Bank Account Numbers (IBANs) within the supplied content.
 
         Extracts possible IBANs using a generic regex.
@@ -956,12 +1003,12 @@ class SpiderFootHelpers():
             data (str): text to search for IBANs
 
         Returns:
-            list: list of IBAN
+            list[str]: list of IBAN
         """
         if not isinstance(data, str):
             return list()
 
-        ibans = set()
+        ibans: typing.Set[str] = set()
 
         # Dictionary of country codes and their respective IBAN lengths
         ibanCountryLengths = {
@@ -1026,7 +1073,7 @@ class SpiderFootHelpers():
         return list(ibans)
 
     @staticmethod
-    def extractCreditCardsFromText(data: str) -> list:
+    def extractCreditCardsFromText(data: str) -> typing.List[str]:
         """Find all credit card numbers with the supplied content.
 
         Extracts numbers with lengths ranging from 13 - 19 digits
@@ -1038,12 +1085,12 @@ class SpiderFootHelpers():
             data (str): text to search for credit card numbers
 
         Returns:
-            list: list of credit card numbers
+            list[str]: list of credit card numbers
         """
         if not isinstance(data, str):
             return list()
 
-        creditCards = set()
+        creditCards: typing.Set[str] = set()
 
         # Remove whitespace from data.
         # Credit cards might contain spaces between them
@@ -1076,14 +1123,14 @@ class SpiderFootHelpers():
         return list(creditCards)
 
     @staticmethod
-    def extractUrlsFromText(content: str) -> list:
+    def extractUrlsFromText(content: str) -> typing.List[str]:
         """Extract all URLs from a string.
 
         Args:
             content (str): text to search for URLs
 
         Returns:
-            list: list of identified URLs
+            list[str]: list of identified URLs
         """
         if not isinstance(content, str):
             return []
@@ -1092,7 +1139,25 @@ class SpiderFootHelpers():
         return re.findall(r"(https?://[a-zA-Z0-9-\.:]+/[\-\._~!\$&'\(\)\*\+\,\;=:@/a-zA-Z0-9]*)", html.unescape(content))
 
     @staticmethod
-    def countryNameFromCountryCode(countryCode: str) -> str:
+    def sslDerToPem(der_cert: bytes) -> str:
+        """Given a certificate as a DER-encoded blob of bytes, returns a PEM-encoded string version of the same certificate.
+
+        Args:
+            der_cert (bytes): certificate in DER format
+
+        Returns:
+            str: PEM-encoded certificate as a byte string
+
+        Raises:
+            TypeError: arg type was invalid
+        """
+        if not isinstance(der_cert, bytes):
+            raise TypeError(f"der_cert is {type(der_cert)}; expected bytes()")
+
+        return ssl.DER_cert_to_PEM_cert(der_cert)
+
+    @staticmethod
+    def countryNameFromCountryCode(countryCode: str) -> typing.Optional[str]:
         """Convert a country code to full country name.
 
         Args:
@@ -1107,7 +1172,7 @@ class SpiderFootHelpers():
         return SpiderFootHelpers.countryCodes().get(countryCode.upper())
 
     @staticmethod
-    def countryNameFromTld(tld: str) -> str:
+    def countryNameFromTld(tld: str) -> typing.Optional[str]:
         """Retrieve the country name associated with a TLD.
 
         Args:
@@ -1141,11 +1206,11 @@ class SpiderFootHelpers():
         return None
 
     @staticmethod
-    def countryCodes() -> dict:
+    def countryCodes() -> typing.Dict[str, str]:
         """Dictionary of country codes and associated country names.
 
         Returns:
-            dict: country codes and associated country names
+            dict[str, str]: country codes and associated country names
         """
 
         return {
@@ -1409,12 +1474,12 @@ class SpiderFootHelpers():
         }
 
     @staticmethod
-    def sanitiseInput(cmd: str, extra: list = None) -> bool:
+    def sanitiseInput(cmd: str, extra: typing.Optional[typing.List[str]] = None) -> bool:
         """Verify input command is safe to execute
 
         Args:
             cmd (str): The command to check
-            extra (list): Additional characters to consider safe
+            extra (list[str]): Additional characters to consider safe
 
         Returns:
             bool: command is "safe"

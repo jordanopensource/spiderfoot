@@ -317,7 +317,7 @@ class SpiderFoot:
             TypeError: arg type was invalid
         """
         if not isinstance(opts, dict):
-            raise TypeError("opts is %s; expected dict()" % type(opts))
+            raise TypeError(f"opts is {type(opts)}; expected dict()")
 
         storeopts = dict()
 
@@ -426,7 +426,7 @@ class SpiderFoot:
             return returnOpts
 
         if not isinstance(referencePoint['__modules__'], dict):
-            raise TypeError("referencePoint['__modules__'] is %s; expected dict()" % type(referencePoint['__modules__']))
+            raise TypeError(f"referencePoint['__modules__'] is {type(referencePoint['__modules__'])}; expected dict()")
 
         # Module options
         # A lot of mess to handle typing..
@@ -938,11 +938,7 @@ class SpiderFoot:
         if not addrs:
             return False
 
-        for addr in addrs:
-            if str(addr) == ip:
-                return True
-
-        return False
+        return any(str(addr) == ip for addr in addrs)
 
     def safeSocket(self, host: str, port: int, timeout: int) -> 'ssl.SSLSocket':
         """Create a safe socket that's using SOCKS/TOR if it was enabled.
@@ -976,24 +972,6 @@ class SpiderFoot:
         sock = ssl.wrap_socket(s)
         sock.do_handshake()
         return sock
-
-    def sslDerToPem(self, der_cert: bytes) -> str:
-        """Given a certificate as a DER-encoded blob of bytes, returns a PEM-encoded string version of the same certificate.
-
-        Args:
-            der_cert (bytes): certificate in DER format
-
-        Returns:
-            str: PEM-encoded certificate as a byte string
-
-        Raises:
-            TypeError: arg type was invalid
-        """
-
-        if not isinstance(der_cert, bytes):
-            raise TypeError("der_cert is %s; expected bytes()" % type(der_cert))
-
-        return ssl.DER_cert_to_PEM_cert(der_cert)
 
     def parseCert(self, rawcert: str, fqdn: str = None, expiringdays: int = 30) -> dict:
         """Parse a PEM-format SSL certificate.
@@ -1538,10 +1516,10 @@ class SpiderFoot:
 
                 if source == "nist":
                     try:
-                        if data['CVE_Items'][0]['impact'].get('baseMetricV3'):
-                            score = data['CVE_Items'][0]['impact']['baseMetricV3']['cvssV3']['baseScore']
+                        if data['result']['CVE_Items'][0]['impact'].get('baseMetricV3'):
+                            score = data['result']['CVE_Items'][0]['impact']['baseMetricV3']['cvssV3']['baseScore']
                         else:
-                            score = data['CVE_Items'][0]['impact']['baseMetricV2']['cvssV2']['baseScore']
+                            score = data['result']['CVE_Items'][0]['impact']['baseMetricV2']['cvssV2']['baseScore']
                         rating = cveRating(score)
                         if rating:
                             eventType = f"VULNERABILITY_CVE_{rating}"
@@ -1549,7 +1527,7 @@ class SpiderFoot:
                         score = "Unknown"
 
                     try:
-                        descr = data['CVE_Items'][0]['cve']['description']['description_data'][0]['value']
+                        descr = data['result']['CVE_Items'][0]['cve']['description']['description_data'][0]['value']
                     except Exception:
                         descr = "Unknown"
 
