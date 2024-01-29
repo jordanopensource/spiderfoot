@@ -15,13 +15,12 @@ steps:
     image: plugins/docker
     settings:
       repo: josaorg/spiderfoot
+      tags:
+        - ${DRONE_COMMIT_SHA}
       username:
         from_secret: docker_username
       password:
         from_secret: docker_password
-      tags:
-        - ${DRONE_COMMIT_SHA}
-        - stable
   - name: notify
     image: plugins/slack
     settings:
