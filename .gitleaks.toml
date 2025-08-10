@@ -10,4 +10,5 @@ useDefault = true
 paths = [
   '''.sample.env''',
   '''^test/''',
+  '''^modules/''',
 ]
