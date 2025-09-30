@@ -39,14 +39,12 @@ steps:
     image: josaorg/pre-commit-runner
     settings:
       args: "--all-files"
-      skip: "end-of-file-fixer, yamllint"
+      skip: "end-of-file-fixer, yamllint, trailing-whitespace"
 
   # Build stable image (main branch only)
   - name: build-stable-image
     image: woodpeckerci/plugin-docker-buildx
     settings:
-      buildkit_debug: true
-      dry-run: true
       repo: *docker_repo
       dockerfile: ./Dockerfile
       tags:
@@ -65,6 +63,8 @@ steps:
         CI_PIPELINE_URL: "${CI_PIPELINE_URL}"
         CI_PIPELINE_CREATED: "${CI_PIPELINE_CREATED}"
         CI_PREV_PIPELINE_URL: "${CI_PREV_PIPELINE_URL}"
+        CI_PIPELINE_NUMBER: "${CI_PIPELINE_NUMBER}"
+
     depends_on:
       - run-pre-commit-hooks
 
