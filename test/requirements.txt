@@ -10,7 +10,7 @@ flake8-quotes==3.3.2
 flake8-return==1.2.0
 flake8-sfs==0.0.4
 flake8-simplify==0.19.3
-pytest==7.2.1
+pytest==9.0.3
 pytest-cov==4.0.0
 pytest-mock==3.10.0
 pytest-xdist==3.2.0
